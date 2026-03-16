@@ -1,4 +1,5 @@
-import { NavLink, Link, Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Link, Outlet, useLocation } from 'react-router-dom';
 import { useTheme } from '@/components/theme-provider';
 import { useApi } from '@/hooks/use-api';
 import {
@@ -8,7 +9,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { BrainCircuit } from 'lucide-react';
+import { BrainCircuit, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
@@ -20,11 +21,26 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
   );
 }
 
+function mobileNavLinkClass({ isActive }: { isActive: boolean }) {
+  return cn(
+    'block py-3 px-2 text-base transition-colors hover:text-foreground rounded-md',
+    isActive
+      ? 'text-foreground font-medium bg-primary/10'
+      : 'text-muted-foreground',
+  );
+}
+
 export function Layout() {
   const { theme, setTheme } = useTheme();
   const { data: versionInfo } = useApi<{ version: string; buildDate: string | null }>(
     '/api/version',
   );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -36,7 +52,9 @@ export function Layout() {
           >
             <BrainCircuit className="h-5 w-5 text-primary" />X AI Weekly Bot
           </Link>
-          <div className="flex items-center gap-4">
+
+          {/* Desktop nav */}
+          <div className="hidden md:flex items-center gap-4">
             <NavLink to="/" end className={navLinkClass}>
               Dashboard
             </NavLink>
@@ -60,9 +78,48 @@ export function Layout() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Mobile hamburger */}
+          <button
+            className="md:hidden p-2 -mr-2 hover:bg-muted rounded-md transition-colors"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          >
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
+
+        {/* Mobile nav panel */}
+        {menuOpen && (
+          <div className="md:hidden border-t border-primary/15 bg-card/95 backdrop-blur-md px-4 py-3 space-y-1">
+            <NavLink to="/" end className={mobileNavLinkClass}>
+              Dashboard
+            </NavLink>
+            <NavLink to="/runs" className={mobileNavLinkClass}>
+              Historique
+            </NavLink>
+            <NavLink to="/summaries" className={mobileNavLinkClass}>
+              Synthèses
+            </NavLink>
+            <NavLink to="/settings" className={mobileNavLinkClass}>
+              Paramètres
+            </NavLink>
+            <div className="pt-2 border-t border-primary/10">
+              <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
+                <SelectTrigger className="h-10 w-full text-sm" aria-label="Thème">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system">Système</SelectItem>
+                  <SelectItem value="light">Clair</SelectItem>
+                  <SelectItem value="dark">Sombre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
       </nav>
-      <main className="container mx-auto flex-1 px-4 py-6">
+      <main className="container mx-auto flex-1 px-3 py-4 sm:px-4 sm:py-6">
         <Outlet />
       </main>
       <footer className="border-t py-4">

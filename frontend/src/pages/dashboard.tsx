@@ -73,7 +73,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Supervision du bot X AI Weekly</p>
       </div>
 
@@ -90,7 +90,7 @@ export function DashboardPage() {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         <StatCard title="Total runs" icon={Activity}>
           {totalRuns}
         </StatCard>
@@ -112,7 +112,7 @@ export function DashboardPage() {
             <div className="font-semibold">Dernier run</div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
               <div>
                 <p className="text-sm text-muted-foreground">Statut</p>
                 <StatusBadge status={lastRun.status} />
