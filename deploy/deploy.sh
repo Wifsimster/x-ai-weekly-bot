@@ -5,7 +5,7 @@
 
 set -eu
 
-COMPOSE_DIR="${X_AI_WEEKLY_BOT_COMPOSE_DIR:-/opt/x-ai-weekly-bot}"
+COMPOSE_DIR="${X_AI_WEEKLY_BOT_COMPOSE_DIR:-/opt/docker/x-ai-weekly-bot}"
 
 echo "[deploy] Pulling latest image..."
 docker compose -f "$COMPOSE_DIR/compose.yml" pull x-ai-weekly-bot
