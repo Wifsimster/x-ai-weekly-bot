@@ -28,7 +28,7 @@ export async function triggerRun(config: Config, trigger: 'cron' | 'manual' = 'm
 
     // Determine status based on what happened
     const lastRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
-    const status = lastRun.tweets_posted > 0 ? 'success' : lastRun.tweets_fetched > 0 ? 'no_news' : 'no_tweets';
+    const status = lastRun.summary ? 'success' : lastRun.tweets_fetched > 0 ? 'no_news' : 'no_tweets';
 
     db.prepare(
       `UPDATE runs SET finished_at = datetime('now'), status = ? WHERE id = ?`

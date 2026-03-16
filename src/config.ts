@@ -1,11 +1,18 @@
 import { z, type ZodIssue } from 'zod';
 
 const configSchema = z.object({
-  X_API_KEY: z.string().min(1),
-  X_API_SECRET: z.string().min(1),
-  X_ACCESS_TOKEN: z.string().min(1),
-  X_ACCESS_TOKEN_SECRET: z.string().min(1),
   X_USERNAME: z.string().min(1),
+
+  // Session tokens for web scraping — extract from browser cookies
+  // auth_token: from browser cookie after login
+  // ct0: CSRF token from browser cookie after login
+  X_SESSION_AUTH_TOKEN: z.string().min(1),
+  X_SESSION_CSRF_TOKEN: z.string().min(1),
+
+  // Optional: override GraphQL operation IDs when X changes them
+  X_GQL_USER_BY_SCREEN_NAME_ID: z.string().optional(),
+  X_GQL_USER_TWEETS_ID: z.string().optional(),
+
   ANTHROPIC_API_KEY: z.string().min(1),
   CLAUDE_MODEL: z.string().default('claude-sonnet-4-20250514'),
   TWEETS_LOOKBACK_DAYS: z.coerce.number().int().positive().default(7),
@@ -31,11 +38,9 @@ const bootSchema = z.object({
 export type BootConfig = z.infer<typeof bootSchema>;
 
 export const REQUIRED_CREDENTIALS = [
-  { key: 'X_API_KEY', label: 'X (Twitter) API Key', docUrl: 'https://developer.x.com/' },
-  { key: 'X_API_SECRET', label: 'X (Twitter) API Secret', docUrl: 'https://developer.x.com/' },
-  { key: 'X_ACCESS_TOKEN', label: 'X (Twitter) Access Token', docUrl: 'https://developer.x.com/' },
-  { key: 'X_ACCESS_TOKEN_SECRET', label: 'X (Twitter) Access Token Secret', docUrl: 'https://developer.x.com/' },
-  { key: 'X_USERNAME', label: 'X (Twitter) Username', docUrl: 'https://developer.x.com/' },
+  { key: 'X_USERNAME', label: 'X (Twitter) Username', docUrl: 'https://x.com/' },
+  { key: 'X_SESSION_AUTH_TOKEN', label: 'X Session Auth Token (cookie: auth_token)', docUrl: 'https://x.com/' },
+  { key: 'X_SESSION_CSRF_TOKEN', label: 'X Session CSRF Token (cookie: ct0)', docUrl: 'https://x.com/' },
   { key: 'ANTHROPIC_API_KEY', label: 'Anthropic API Key', docUrl: 'https://console.anthropic.com/' },
 ] as const;
 

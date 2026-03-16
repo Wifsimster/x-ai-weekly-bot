@@ -77,12 +77,8 @@ export function dashboardPage(lastRun: RunRecord | undefined, cronSchedule: stri
             <h3>Tweets analysés</h3>
             <div class="value">${lastRun.tweets_fetched}</div>
           </div>
-          <div class="stat-card">
-            <h3>Tweets postés</h3>
-            <div class="value">${lastRun.tweets_posted}</div>
-          </div>
         </div>
-        ${lastRun.summary ? `<details><summary>Résumé généré</summary><pre class="log">${escapeHtml(lastRun.summary)}</pre></details>` : ''}
+        ${lastRun.summary ? `<article><header><strong>Résumé IA</strong></header><div style="white-space:pre-wrap;line-height:1.6">${escapeHtml(lastRun.summary)}</div></article>` : ''}
         ${lastRun.error_message ? `<details open><summary>Erreur</summary><pre class="log">${escapeHtml(lastRun.error_message)}</pre></details>` : ''}
       </article>`
     : '<article><p>Aucun run enregistré.</p></article>';
@@ -129,7 +125,7 @@ export function runsPage(runs: RunRecord[]): string {
       <td>${statusBadge(r.status)}</td>
       <td>${r.trigger_type}</td>
       <td>${r.tweets_fetched}</td>
-      <td>${r.tweets_posted}</td>
+      <td>${r.summary ? `<details><summary>Voir le résumé</summary><div style="white-space:pre-wrap;max-width:500px;font-size:0.8rem;line-height:1.4;padding:0.5rem">${escapeHtml(r.summary)}</div></details>` : '—'}</td>
       <td>${r.error_message ? `<small>${escapeHtml(r.error_message.slice(0, 80))}</small>` : '—'}</td>
     </tr>`
     )
@@ -150,7 +146,7 @@ export function runsPage(runs: RunRecord[]): string {
             <th>Statut</th>
             <th>Déclencheur</th>
             <th>Tweets analysés</th>
-            <th>Tweets postés</th>
+            <th>Résumé</th>
             <th>Erreur</th>
           </tr>
         </thead>
