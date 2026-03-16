@@ -182,7 +182,7 @@ export function settingsPage(
   const settingsMap = new Map(settings.map((s) => [s.key, s]));
 
   const fields = [
-    { key: 'CLAUDE_MODEL', label: 'Modèle Claude', type: 'text' },
+    { key: 'AI_MODEL', label: 'Modèle IA', type: 'text' },
     { key: 'TWEETS_LOOKBACK_DAYS', label: 'Jours à analyser', type: 'number' },
     { key: 'MAX_TWEETS', label: 'Max tweets', type: 'number' },
     { key: 'DRY_RUN', label: 'Mode test (dry run)', type: 'select', options: ['false', 'true'] },
@@ -266,6 +266,7 @@ export interface CredentialStatus {
   key: string;
   label: string;
   docUrl: string;
+  howToFind: string;
   configured: boolean;
 }
 
@@ -289,6 +290,8 @@ export function setupLayout(title: string, content: string): string {
     .cred-details { flex: 1; }
     .cred-details strong { display: block; }
     .cred-details code { font-size: 0.8rem; }
+    .cred-how-to { margin-top: 0.4rem; font-size: 0.82rem; color: var(--pico-muted-color); line-height: 1.45; }
+    .cred-how-to kbd { display: inline-block; padding: 0.1em 0.4em; font-size: 0.8em; background: var(--pico-muted-border-color); border-radius: 3px; font-family: inherit; }
     pre.env-template { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; line-height: 1.5; }
     .progress-bar { display: flex; gap: 4px; margin-bottom: 1.5rem; }
     .progress-segment { height: 6px; flex: 1; border-radius: 3px; }
@@ -322,10 +325,8 @@ export function setupPage(credentials: CredentialStatus[]): string {
         <div class="cred-details">
           <strong>${escapeHtml(c.label)}</strong>
           <code>${escapeHtml(c.key)}</code>
+          <div class="cred-how-to">${c.howToFind}</div>
         </div>
-        <a href="${escapeHtml(c.docUrl)}" target="_blank" rel="noopener noreferrer">
-          <small>Documentation</small>
-        </a>
       </li>`
     )
     .join('');

@@ -11,8 +11,8 @@ const configSchema = z.object({
   X_GQL_USER_BY_SCREEN_NAME_ID: z.string().optional(),
   X_GQL_USER_TWEETS_ID: z.string().optional(),
 
-  ANTHROPIC_API_KEY: z.string().min(1),
-  CLAUDE_MODEL: z.string().default('claude-sonnet-4-20250514'),
+  GITHUB_TOKEN: z.string().min(1),
+  AI_MODEL: z.string().default('openai/gpt-4.1'),
   TWEETS_LOOKBACK_DAYS: z.coerce.number().int().positive().default(7),
   MAX_TWEETS: z.coerce.number().int().positive().default(200),
   DRY_RUN: z
@@ -36,10 +36,34 @@ const bootSchema = z.object({
 export type BootConfig = z.infer<typeof bootSchema>;
 
 export const REQUIRED_CREDENTIALS = [
-  { key: 'X_USERNAME', label: 'X (Twitter) Username', docUrl: 'https://x.com/' },
-  { key: 'X_SESSION_AUTH_TOKEN', label: 'X Session Auth Token (cookie: auth_token)', docUrl: 'https://x.com/' },
-  { key: 'X_SESSION_CSRF_TOKEN', label: 'X Session CSRF Token (cookie: ct0)', docUrl: 'https://x.com/' },
-  { key: 'ANTHROPIC_API_KEY', label: 'Anthropic API Key', docUrl: 'https://console.anthropic.com/' },
+  {
+    key: 'X_USERNAME',
+    label: 'X (Twitter) Username',
+    docUrl: 'https://x.com/',
+    howToFind:
+      'Votre nom d\'utilisateur X (sans le @). Visible dans votre profil X : <strong>x.com → Profil → le texte après le @</strong> (ex: <code>wifsimster</code>).',
+  },
+  {
+    key: 'X_SESSION_AUTH_TOKEN',
+    label: 'X Session Auth Token (cookie: auth_token)',
+    docUrl: 'https://x.com/',
+    howToFind:
+      'Connectez-vous sur <strong>x.com</strong>, puis ouvrez les DevTools du navigateur (<kbd>F12</kbd>) → onglet <strong>Application</strong> (Chrome) ou <strong>Stockage</strong> (Firefox) → <strong>Cookies</strong> → <code>https://x.com</code> → copiez la valeur du cookie <code>auth_token</code>.',
+  },
+  {
+    key: 'X_SESSION_CSRF_TOKEN',
+    label: 'X Session CSRF Token (cookie: ct0)',
+    docUrl: 'https://x.com/',
+    howToFind:
+      'Même endroit que le auth_token : DevTools (<kbd>F12</kbd>) → <strong>Application</strong> → <strong>Cookies</strong> → <code>https://x.com</code> → copiez la valeur du cookie <code>ct0</code>.',
+  },
+  {
+    key: 'GITHUB_TOKEN',
+    label: 'GitHub Personal Access Token',
+    docUrl: 'https://github.com/settings/tokens',
+    howToFind:
+      'Rendez-vous sur <strong>github.com</strong> → <strong>Settings</strong> → <strong>Developer settings</strong> → <strong>Personal access tokens</strong> → <strong>Fine-grained tokens</strong> → <strong>Generate new token</strong>. Activez le scope <code>models:read</code>. Le token commence par <code>github_pat_...</code>.',
+  },
 ] as const;
 
 export interface ConfigResult {
@@ -49,7 +73,7 @@ export interface ConfigResult {
 
 export interface ConfigError {
   success: false;
-  missing: { key: string; label: string; docUrl: string; message: string }[];
+  missing: { key: string; label: string; docUrl: string; howToFind: string; message: string }[];
 }
 
 function parseConfig(source: Record<string, string | undefined>): ConfigResult | ConfigError {

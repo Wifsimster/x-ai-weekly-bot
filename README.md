@@ -1,13 +1,13 @@
 # X AI Weekly Bot
 
-Bot qui scrape automatiquement votre timeline X chaque semaine, extrait les actualités liées à l'IA, génère un résumé via Claude et le publie sous forme de thread X.
+Bot qui scrape automatiquement votre timeline X chaque semaine, extrait les actualités liées à l'IA, génère un résumé via GitHub Models et le publie sous forme de thread X.
 
 ## Prérequis
 
 - Node.js >= 24
 - Docker & Docker Compose
 - Compte développeur X avec accès OAuth 1.0a (lecture + écriture)
-- Clé API Anthropic
+- GitHub Personal Access Token (scope `models:read`)
 
 ## Configuration
 
@@ -17,9 +17,10 @@ Bot qui scrape automatiquement votre timeline X chaque semaine, extrait les actu
 2. Activer les permissions **Read and Write**
 3. Générer les tokens OAuth 1.0a (API Key, API Secret, Access Token, Access Token Secret)
 
-### 2. Anthropic
+### 2. GitHub Models
 
-1. Obtenir une clé API sur [console.anthropic.com](https://console.anthropic.com/)
+1. Créer un Personal Access Token sur [github.com/settings/tokens](https://github.com/settings/tokens) avec le scope `models:read`
+2. Catalogue des modèles disponibles : [github.com/marketplace/models](https://github.com/marketplace/models)
 
 ### 3. GitHub Secrets
 
@@ -32,8 +33,7 @@ Ajouter les secrets suivants dans **Settings > Secrets and variables > Actions**
 | `X_ACCESS_TOKEN` | Access Token X |
 | `X_ACCESS_TOKEN_SECRET` | Access Token Secret X |
 | `X_USERNAME` | Nom d'utilisateur X (ex: `wifsimster`) |
-| `ANTHROPIC_API_KEY` | Clé API Anthropic |
-| `GITHUB_TOKEN` | Automatiquement fourni par GitHub Actions (accès GHCR) |
+| `GITHUB_TOKEN` | GitHub PAT avec scope `models:read` (aussi utilisé par GitHub Actions pour GHCR) |
 
 ## Développement local
 
@@ -86,7 +86,7 @@ Déclenchement manuel possible via **Actions > Release > Run workflow**.
 ## Fonctionnement
 
 1. Récupère les tweets des 7 derniers jours (configurable via `TWEETS_LOOKBACK_DAYS`)
-2. Envoie les tweets à Claude pour filtrer et résumer les actualités IA
+2. Envoie les tweets à GitHub Models pour filtrer et résumer les actualités IA
 3. Découpe le résumé en chunks de 280 caractères max
 4. Publie le thread sur X (ou log en mode `DRY_RUN`)
 
@@ -94,7 +94,7 @@ Déclenchement manuel possible via **Actions > Release > Run workflow**.
 
 | Variable | Défaut | Description |
 |----------|--------|-------------|
-| `CLAUDE_MODEL` | `claude-sonnet-4-20250514` | Modèle Claude à utiliser |
+| `AI_MODEL` | `openai/gpt-4.1` | Modèle IA à utiliser ([catalogue](https://github.com/marketplace/models)) |
 | `TWEETS_LOOKBACK_DAYS` | `7` | Nombre de jours à scanner |
 | `MAX_TWEETS` | `200` | Nombre max de tweets à analyser |
 | `DRY_RUN` | `false` | Mode test (ne poste pas sur X) |

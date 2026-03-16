@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import type { Config } from './config.js';
 import type { Tweet } from './ports.js';
 import { logger } from './logger.js';
@@ -18,7 +18,10 @@ Each section should have a bold theme header using uppercase.
 If none of the tweets are related to AI, respond with exactly: NO_AI_NEWS_FOUND`;
 
 export function createAIFilter(config: Config) {
-  const anthropic = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  const client = new OpenAI({
+    baseURL: 'https://models.github.ai/inference',
+    apiKey: config.GITHUB_TOKEN,
+  });
 
   return { filterAndSummarize };
 
@@ -30,11 +33,11 @@ export function createAIFilter(config: Config) {
       })
       .join('\n\n');
 
-    const response = await anthropic.messages.create({
-      model: config.CLAUDE_MODEL,
+    const response = await client.chat.completions.create({
+      model: config.AI_MODEL,
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
       messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',
           content: `Here are the tweets from the past ${config.TWEETS_LOOKBACK_DAYS} days:\n\n${tweetTexts}`,
@@ -42,12 +45,11 @@ export function createAIFilter(config: Config) {
       ],
     });
 
-    const text =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+    const text = response.choices[0]?.message?.content ?? '';
 
-    logger.info('Claude API usage', {
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
+    logger.info('GitHub Models API usage', {
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
       model: response.model,
     });
 

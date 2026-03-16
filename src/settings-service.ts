@@ -1,6 +1,6 @@
 import { getDb, type SettingRecord } from './db.js';
 
-const EDITABLE_KEYS = ['CLAUDE_MODEL', 'TWEETS_LOOKBACK_DAYS', 'MAX_TWEETS', 'DRY_RUN', 'CRON_SCHEDULE'] as const;
+const EDITABLE_KEYS = ['AI_MODEL', 'TWEETS_LOOKBACK_DAYS', 'MAX_TWEETS', 'DRY_RUN', 'CRON_SCHEDULE'] as const;
 const CREDENTIAL_KEYS = ['X_SESSION_AUTH_TOKEN', 'X_SESSION_CSRF_TOKEN'] as const;
 
 export type EditableKey = (typeof EDITABLE_KEYS)[number];

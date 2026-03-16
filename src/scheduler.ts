@@ -61,7 +61,7 @@ if (configResult.success) {
 function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>): Config {
   return {
     ...baseConfig,
-    ...(overrides.CLAUDE_MODEL && { CLAUDE_MODEL: overrides.CLAUDE_MODEL }),
+    ...(overrides.AI_MODEL && { AI_MODEL: overrides.AI_MODEL }),
     ...(overrides.TWEETS_LOOKBACK_DAYS && { TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS) }),
     ...(overrides.MAX_TWEETS && { MAX_TWEETS: Number(overrides.MAX_TWEETS) }),
     ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
