@@ -3,11 +3,9 @@ import { z, type ZodIssue } from 'zod';
 const configSchema = z.object({
   X_USERNAME: z.string().min(1),
 
-  // Session tokens for web scraping — extract from browser cookies
-  // auth_token: from browser cookie after login
-  // ct0: CSRF token from browser cookie after login
-  X_SESSION_AUTH_TOKEN: z.string().min(1),
-  X_SESSION_CSRF_TOKEN: z.string().min(1),
+  // Session tokens for web scraping — can come from env vars or settings DB
+  X_SESSION_AUTH_TOKEN: z.string().min(1).optional(),
+  X_SESSION_CSRF_TOKEN: z.string().min(1).optional(),
 
   // Optional: override GraphQL operation IDs when X changes them
   X_GQL_USER_BY_SCREEN_NAME_ID: z.string().optional(),
@@ -54,8 +52,8 @@ export interface ConfigError {
   missing: { key: string; label: string; docUrl: string; message: string }[];
 }
 
-export function tryLoadConfig(): ConfigResult | ConfigError {
-  const result = configSchema.safeParse(process.env);
+function parseConfig(source: Record<string, string | undefined>): ConfigResult | ConfigError {
+  const result = configSchema.safeParse(source);
   if (result.success) {
     return { success: true, config: result.data };
   }
@@ -67,6 +65,18 @@ export function tryLoadConfig(): ConfigResult | ConfigError {
   }));
 
   return { success: false, missing };
+}
+
+export function tryLoadConfig(): ConfigResult | ConfigError {
+  return parseConfig(process.env);
+}
+
+export function tryLoadConfigWithOverrides(overrides: Record<string, string>): ConfigResult | ConfigError {
+  const merged: Record<string, string | undefined> = { ...process.env };
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value) merged[key] = value;
+  }
+  return parseConfig(merged);
 }
 
 export function loadBootConfig(): BootConfig {

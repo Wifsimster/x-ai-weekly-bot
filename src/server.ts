@@ -3,9 +3,10 @@ import { basicAuth } from 'hono/basic-auth';
 import { serve } from '@hono/node-server';
 import { logger } from './logger.js';
 import { getRunHistory, getLastRun, isRunning, triggerRun } from './run-service.js';
-import { getSettings, setSetting, isEditableKey, getSettingsMap } from './settings-service.js';
+import { getSettings, setSetting, isEditableKey, isCredentialKey, getSettingsMap, getSetting, maskCredential } from './settings-service.js';
 import { layout, dashboardPage, runsPage, settingsPage, setupPage, setupLayout } from './web/templates.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
+import { validateXCookies } from './adapters/scraper-reader.js';
 
 interface MissingCredential {
   key: string;
@@ -52,7 +53,7 @@ export function startServer(
     }
     const credentials = REQUIRED_CREDENTIALS.map((cred) => ({
       ...cred,
-      configured: !!process.env[cred.key],
+      configured: !!process.env[cred.key] || !!getSetting(cred.key),
     }));
     const content = setupPage(credentials);
     return c.html(setupLayout('Configuration requise', content));
@@ -64,6 +65,7 @@ export function startServer(
     app.get('/runs', (c) => c.redirect('/setup'));
     app.get('/settings', (c) => c.redirect('/setup'));
     app.post('/settings', (c) => c.redirect('/setup'));
+    app.post('/settings/credentials', (c) => c.redirect('/setup'));
     app.post('/api/trigger', (c) =>
       c.html('<div class="flash flash-error">Configuration incomplète. Configurez les variables d\'environnement requises.</div>')
     );
@@ -78,7 +80,8 @@ export function startServer(
     app.get('/', (c) => {
       const lastRun = getLastRun();
       const totalRuns = getRunHistory(1000).length;
-      const content = dashboardPage(lastRun, cronSchedule, isRunning(), totalRuns);
+      const cookiesExpired = lastRun?.error_message?.includes('401') || lastRun?.error_message?.includes('403') || lastRun?.error_message?.includes('Session cookies') || false;
+      const content = dashboardPage(lastRun, cronSchedule, isRunning(), totalRuns, cookiesExpired);
       return c.html(layout('Dashboard', content, '/'));
     });
 
@@ -99,11 +102,18 @@ export function startServer(
         DRY_RUN: String(config.DRY_RUN),
         CRON_SCHEDULE: cronSchedule,
       };
-      const content = settingsPage(settings, envDefaults);
+      const authToken = getSetting('X_SESSION_AUTH_TOKEN') ?? config.X_SESSION_AUTH_TOKEN ?? '';
+      const csrfToken = getSetting('X_SESSION_CSRF_TOKEN') ?? config.X_SESSION_CSRF_TOKEN ?? '';
+      const credentialInfo = {
+        authTokenMasked: authToken ? maskCredential(authToken) : '',
+        csrfTokenMasked: csrfToken ? maskCredential(csrfToken) : '',
+        hasAuth: !!process.env.ADMIN_PASSWORD,
+      };
+      const content = settingsPage(settings, envDefaults, undefined, credentialInfo);
       return c.html(layout('Paramètres', content, '/settings'));
     });
 
-    // Settings form POST
+    // Settings form POST (tuning parameters)
     app.post('/settings', async (c) => {
       const body = await c.req.parseBody();
       let updated = 0;
@@ -123,10 +133,82 @@ export function startServer(
         DRY_RUN: String(config.DRY_RUN),
         CRON_SCHEDULE: cronSchedule,
       };
+      const authToken = getSetting('X_SESSION_AUTH_TOKEN') ?? config.X_SESSION_AUTH_TOKEN ?? '';
+      const csrfToken = getSetting('X_SESSION_CSRF_TOKEN') ?? config.X_SESSION_CSRF_TOKEN ?? '';
+      const credentialInfo = {
+        authTokenMasked: authToken ? maskCredential(authToken) : '',
+        csrfTokenMasked: csrfToken ? maskCredential(csrfToken) : '',
+        hasAuth: !!process.env.ADMIN_PASSWORD,
+      };
       const content = settingsPage(settings, envDefaults, {
         type: 'success',
         message: `${updated} paramètre(s) mis à jour. Les changements seront appliqués au prochain run.`,
-      });
+      }, credentialInfo);
+      return c.html(layout('Paramètres', content, '/settings'));
+    });
+
+    // Credentials form POST (session cookies — validate then save)
+    app.post('/settings/credentials', async (c) => {
+      const body = await c.req.parseBody();
+      const authToken = typeof body.X_SESSION_AUTH_TOKEN === 'string' ? body.X_SESSION_AUTH_TOKEN.trim() : '';
+      const csrfToken = typeof body.X_SESSION_CSRF_TOKEN === 'string' ? body.X_SESSION_CSRF_TOKEN.trim() : '';
+
+      const settings = getSettings();
+      const envDefaults: Record<string, string> = {
+        CLAUDE_MODEL: config.CLAUDE_MODEL,
+        TWEETS_LOOKBACK_DAYS: String(config.TWEETS_LOOKBACK_DAYS),
+        MAX_TWEETS: String(config.MAX_TWEETS),
+        DRY_RUN: String(config.DRY_RUN),
+        CRON_SCHEDULE: cronSchedule,
+      };
+
+      if (!authToken || !csrfToken) {
+        const credentialInfo = {
+          authTokenMasked: authToken || (getSetting('X_SESSION_AUTH_TOKEN') ? maskCredential(getSetting('X_SESSION_AUTH_TOKEN')!) : ''),
+          csrfTokenMasked: csrfToken || (getSetting('X_SESSION_CSRF_TOKEN') ? maskCredential(getSetting('X_SESSION_CSRF_TOKEN')!) : ''),
+          hasAuth: !!process.env.ADMIN_PASSWORD,
+        };
+        const content = settingsPage(settings, envDefaults, {
+          type: 'error',
+          message: 'Les deux champs (auth_token et ct0) sont requis.',
+        }, credentialInfo);
+        return c.html(layout('Paramètres', content, '/settings'));
+      }
+
+      // Validate cookies against X API
+      const validation = await validateXCookies(
+        authToken,
+        csrfToken,
+        config.X_USERNAME,
+        config.X_GQL_USER_BY_SCREEN_NAME_ID,
+      );
+
+      if (!validation.valid) {
+        const credentialInfo = {
+          authTokenMasked: getSetting('X_SESSION_AUTH_TOKEN') ? maskCredential(getSetting('X_SESSION_AUTH_TOKEN')!) : '',
+          csrfTokenMasked: getSetting('X_SESSION_CSRF_TOKEN') ? maskCredential(getSetting('X_SESSION_CSRF_TOKEN')!) : '',
+          hasAuth: !!process.env.ADMIN_PASSWORD,
+        };
+        const content = settingsPage(settings, envDefaults, {
+          type: 'error',
+          message: `Cookies invalides : ${validation.error}. Vérifiez les valeurs et réessayez.`,
+        }, credentialInfo);
+        return c.html(layout('Paramètres', content, '/settings'));
+      }
+
+      // Save validated cookies
+      setSetting('X_SESSION_AUTH_TOKEN', authToken);
+      setSetting('X_SESSION_CSRF_TOKEN', csrfToken);
+
+      const credentialInfo = {
+        authTokenMasked: maskCredential(authToken),
+        csrfTokenMasked: maskCredential(csrfToken),
+        hasAuth: !!process.env.ADMIN_PASSWORD,
+      };
+      const content = settingsPage(settings, envDefaults, {
+        type: 'success',
+        message: 'Cookies de session mis à jour et validés avec succès. Les prochains runs utiliseront ces valeurs.',
+      }, credentialInfo);
       return c.html(layout('Paramètres', content, '/settings'));
     });
 
@@ -163,7 +245,11 @@ export function startServer(
     });
 
     app.get('/api/settings', (c) => {
-      return c.json(getSettings());
+      // Mask credential values in API response
+      const settings = getSettings().map((s) =>
+        isCredentialKey(s.key) ? { ...s, value: maskCredential(s.value) } : s
+      );
+      return c.json(settings);
     });
   }
 
@@ -191,5 +277,7 @@ function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>
     ...(overrides.TWEETS_LOOKBACK_DAYS && { TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS) }),
     ...(overrides.MAX_TWEETS && { MAX_TWEETS: Number(overrides.MAX_TWEETS) }),
     ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
+    ...(overrides.X_SESSION_AUTH_TOKEN && { X_SESSION_AUTH_TOKEN: overrides.X_SESSION_AUTH_TOKEN }),
+    ...(overrides.X_SESSION_CSRF_TOKEN && { X_SESSION_CSRF_TOKEN: overrides.X_SESSION_CSRF_TOKEN }),
   };
 }

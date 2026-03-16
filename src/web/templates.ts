@@ -60,7 +60,7 @@ export function statusBadge(status: string): string {
   return `<span class="status-badge status-${status}">${labels[status] || status}</span>`;
 }
 
-export function dashboardPage(lastRun: RunRecord | undefined, cronSchedule: string, isRunning: boolean, totalRuns: number): string {
+export function dashboardPage(lastRun: RunRecord | undefined, cronSchedule: string, isRunning: boolean, totalRuns: number, cookiesExpired = false): string {
   const lastRunHtml = lastRun
     ? `<article>
         <header>Dernier run</header>
@@ -83,11 +83,20 @@ export function dashboardPage(lastRun: RunRecord | undefined, cronSchedule: stri
       </article>`
     : '<article><p>Aucun run enregistré.</p></article>';
 
+  const cookieBanner = cookiesExpired
+    ? `<div class="flash flash-error" style="margin-bottom:1.5rem">
+        <strong>Session cookies expirés</strong> — Vos cookies de session X semblent avoir expiré.
+        <a href="/settings">Mettez-les à jour dans Paramètres</a>.
+      </div>`
+    : '';
+
   return `
     <hgroup>
       <h1>Dashboard</h1>
       <p>Supervision du bot X AI Weekly</p>
     </hgroup>
+
+    ${cookieBanner}
 
     <div class="grid-stats">
       <div class="stat-card">
@@ -158,10 +167,17 @@ export function runsPage(runs: RunRecord[]): string {
   `;
 }
 
+export interface CredentialInfo {
+  authTokenMasked: string;
+  csrfTokenMasked: string;
+  hasAuth: boolean;
+}
+
 export function settingsPage(
   settings: SettingRecord[],
   envDefaults: Record<string, string>,
-  flash?: { type: 'success' | 'error'; message: string }
+  flash?: { type: 'success' | 'error'; message: string },
+  credentials?: CredentialInfo,
 ): string {
   const settingsMap = new Map(settings.map((s) => [s.key, s]));
 
@@ -218,6 +234,30 @@ export function settingsPage(
         <tbody>${rows}</tbody>
       </table>
       <button type="submit">Enregistrer</button>
+    </form>
+
+    <hr>
+
+    <hgroup>
+      <h2>Session Cookies X</h2>
+      <p>Cookies de session pour le scraping — extraits depuis votre navigateur (DevTools → Application → Cookies → x.com)</p>
+    </hgroup>
+
+    ${!credentials?.hasAuth ? '<div class="flash flash-error">Il est fortement recommandé de configurer <code>ADMIN_PASSWORD</code> pour protéger l\'accès aux cookies de session.</div>' : ''}
+
+    <form method="POST" action="/settings/credentials">
+      <label>
+        <strong>auth_token</strong>
+        <input type="password" name="X_SESSION_AUTH_TOKEN" placeholder="Collez votre auth_token ici" autocomplete="off">
+        ${credentials?.authTokenMasked ? `<small>Valeur actuelle : <code>${escapeHtml(credentials.authTokenMasked)}</code></small>` : '<small>Non configuré</small>'}
+      </label>
+      <label>
+        <strong>ct0 (CSRF token)</strong>
+        <input type="password" name="X_SESSION_CSRF_TOKEN" placeholder="Collez votre ct0 ici" autocomplete="off">
+        ${credentials?.csrfTokenMasked ? `<small>Valeur actuelle : <code>${escapeHtml(credentials.csrfTokenMasked)}</code></small>` : '<small>Non configuré</small>'}
+      </label>
+      <button type="submit">Valider et sauvegarder</button>
+      <small>Les cookies seront testés contre l'API X avant d'être sauvegardés.</small>
     </form>
   `;
 }

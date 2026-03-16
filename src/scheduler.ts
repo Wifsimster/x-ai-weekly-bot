@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { tryLoadConfig, loadBootConfig } from './config.js';
+import { tryLoadConfigWithOverrides, loadBootConfig } from './config.js';
 import { logger } from './logger.js';
 import { triggerRun } from './run-service.js';
 import { getSettingsMap } from './settings-service.js';
@@ -11,7 +11,8 @@ import type { Config } from './config.js';
 getDb();
 
 const bootConfig = loadBootConfig();
-const configResult = tryLoadConfig();
+const dbOverrides = getSettingsMap();
+const configResult = tryLoadConfigWithOverrides(dbOverrides);
 
 // Start web server — always, even if config is incomplete
 startServer(
@@ -39,13 +40,7 @@ if (configResult.success) {
       logger.info('Cron triggered — starting weekly summary');
       try {
         const overrides = getSettingsMap();
-        const mergedConfig: Config = {
-          ...config,
-          ...(overrides.CLAUDE_MODEL && { CLAUDE_MODEL: overrides.CLAUDE_MODEL }),
-          ...(overrides.TWEETS_LOOKBACK_DAYS && { TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS) }),
-          ...(overrides.MAX_TWEETS && { MAX_TWEETS: Number(overrides.MAX_TWEETS) }),
-          ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
-        };
+        const mergedConfig = buildMergedConfig(config, overrides);
         await triggerRun(mergedConfig, 'cron');
       } catch (err) {
         logger.error('Weekly summary failed', {
@@ -61,4 +56,16 @@ if (configResult.success) {
     missing: configResult.missing.map((m) => m.key),
     webPort: bootConfig.WEB_PORT,
   });
+}
+
+function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>): Config {
+  return {
+    ...baseConfig,
+    ...(overrides.CLAUDE_MODEL && { CLAUDE_MODEL: overrides.CLAUDE_MODEL }),
+    ...(overrides.TWEETS_LOOKBACK_DAYS && { TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS) }),
+    ...(overrides.MAX_TWEETS && { MAX_TWEETS: Number(overrides.MAX_TWEETS) }),
+    ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
+    ...(overrides.X_SESSION_AUTH_TOKEN && { X_SESSION_AUTH_TOKEN: overrides.X_SESSION_AUTH_TOKEN }),
+    ...(overrides.X_SESSION_CSRF_TOKEN && { X_SESSION_CSRF_TOKEN: overrides.X_SESSION_CSRF_TOKEN }),
+  };
 }
