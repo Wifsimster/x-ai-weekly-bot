@@ -11,6 +11,7 @@ Your task:
 3. Write a concise summary (under 2000 characters) in French
 4. Include source links where available
 5. Use a professional but engaging tone
+6. Start with a title line that includes the date provided by the user (e.g. "📅 VEILLE IA & TECH — 16 mars 2025")
 
 Format your response as a thread-ready text with clear sections separated by blank lines.
 Each section should have a bold theme header using uppercase.
@@ -54,7 +55,7 @@ export function createAIFilter(config: Config) {
         { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `Here are the tweets from the past ${config.TWEETS_LOOKBACK_DAYS} days:\n\n${tweetTexts}`,
+          content: `Date: ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}\n\nHere are the tweets from the past ${config.TWEETS_LOOKBACK_DAYS} days:\n\n${tweetTexts}`,
         },
       ],
     });
