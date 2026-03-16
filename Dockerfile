@@ -10,12 +10,13 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Stage 2: Build TypeScript
+# Stage 2: Build TypeScript backend + React frontend
 FROM deps AS builder
 WORKDIR /app
 
 COPY tsconfig.json ./
 COPY src ./src
+COPY frontend ./frontend
 
 RUN npm run build
 
@@ -51,7 +52,7 @@ RUN apk add --no-cache python3 make g++ && \
     npm ci --omit=dev && \
     apk del python3 make g++
 
-# Copy built artifacts
+# Copy built artifacts (backend + frontend)
 COPY --from=builder /app/dist ./dist
 
 # Copy startup script
