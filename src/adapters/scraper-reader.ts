@@ -43,19 +43,20 @@ const USER_FIELD_TOGGLES_ENCODED = encodeURIComponent(JSON.stringify(USER_FIELD_
 /** Build browser-like headers required by X's API */
 function browserHeaders(authToken: string, csrfToken: string): Record<string, string> {
   return {
-    'accept': '*/*',
+    accept: '*/*',
     'accept-language': 'en-US,en;q=0.9',
     authorization: `Bearer ${BEARER_TOKEN}`,
     'content-type': 'application/json',
     cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
-    'referer': 'https://x.com/',
+    referer: 'https://x.com/',
     'sec-ch-ua': '"Chromium";v="131", "Not_A Brand";v="24"',
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Windows"',
     'sec-fetch-dest': 'empty',
     'sec-fetch-mode': 'cors',
     'sec-fetch-site': 'same-origin',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'user-agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     'x-csrf-token': csrfToken,
     'x-twitter-active-user': 'yes',
     'x-twitter-auth-type': 'OAuth2Session',
@@ -98,9 +99,7 @@ const tweetLegacySchema = z.object({
   full_text: z.string(),
   created_at: z.string(),
   entities: z.object({
-    urls: z
-      .array(z.object({ expanded_url: z.string().optional() }))
-      .default([]),
+    urls: z.array(z.object({ expanded_url: z.string().optional() })).default([]),
   }),
   retweeted_status_result: z.unknown().optional(),
 });
@@ -173,25 +172,25 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
     const tweets: Tweet[] = [];
     let cursor: string | undefined;
 
-    while (tweets.length < config.MAX_TWEETS) {
+    while (true) {
       const { entries, nextCursor } = await fetchHomeTimelinePage(cursor);
 
       if (entries.length === 0) break;
 
+      let reachedLookbackLimit = false;
       for (const entry of entries) {
         const tweet = parseTweetEntry(entry);
         if (!tweet) continue;
 
         if (new Date(tweet.createdAt) < startTime) {
-          logger.info('Fetched tweets from home timeline', {
-            count: tweets.length,
-          });
-          return tweets;
+          reachedLookbackLimit = true;
+          break;
         }
 
         tweets.push(tweet);
-        if (tweets.length >= config.MAX_TWEETS) break;
       }
+
+      if (reachedLookbackLimit) break;
 
       if (!nextCursor || nextCursor === cursor) break;
       cursor = nextCursor;
@@ -219,13 +218,18 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
         updated = true;
       }
       if (updated) {
-        logger.info('GraphQL IDs updated', { UserByScreenName: userByScreenNameId, HomeLatestTimeline: homeTimelineId });
+        logger.info('GraphQL IDs updated', {
+          UserByScreenName: userByScreenNameId,
+          HomeLatestTimeline: homeTimelineId,
+        });
       } else {
         logger.info('GraphQL IDs are already up to date');
       }
       return updated;
     } catch (err) {
-      logger.warn('Failed to auto-detect GraphQL IDs', { error: err instanceof Error ? err.message : String(err) });
+      logger.warn('Failed to auto-detect GraphQL IDs', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return false;
     }
   }
@@ -234,7 +238,7 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
     cursor?: string,
   ): Promise<{ entries: unknown[]; nextCursor: string | undefined }> {
     const variables: Record<string, unknown> = {
-      count: Math.min(config.MAX_TWEETS, 40),
+      count: 40,
       includePromotedContent: false,
       latestControlAvailable: true,
       requestContext: cursor ? 'scroll' : 'launch',
@@ -270,22 +274,23 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
     return parseHomeTimelineResponse(json);
   }
 
-  function parseHomeTimelineResponse(json: Record<string, unknown>): { entries: unknown[]; nextCursor: string | undefined } {
-    const instructions = ((getNestedValue(json, [
+  function parseHomeTimelineResponse(json: Record<string, unknown>): {
+    entries: unknown[];
+    nextCursor: string | undefined;
+  } {
+    const instructions = (getNestedValue(json, [
       'data',
       'home',
       'home_timeline_urt',
       'instructions',
-    ])) ?? []) as Array<Record<string, unknown>>;
+    ]) ?? []) as Array<Record<string, unknown>>;
 
     const entries: unknown[] = [];
     let nextCursor: string | undefined;
 
     for (const instruction of instructions) {
       if (instruction.type === 'TimelineAddEntries') {
-        for (const entry of (instruction.entries ?? []) as Array<
-          Record<string, unknown>
-        >) {
+        for (const entry of (instruction.entries ?? []) as Array<Record<string, unknown>>) {
           const content = entry.content as Record<string, unknown> | undefined;
           if (!content) continue;
 
@@ -316,9 +321,7 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
       if (!tweetResult) return null;
 
       // Handle tweet types: regular tweet or tweet-with-visibility-results
-      const legacy =
-        tweetResult.legacy ??
-        getNestedValue(tweetResult, ['tweet', 'legacy']);
+      const legacy = tweetResult.legacy ?? getNestedValue(tweetResult, ['tweet', 'legacy']);
       if (!legacy) return null;
 
       const parsed = tweetLegacySchema.safeParse(legacy);
@@ -332,7 +335,9 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
       // For retweets, use the original tweet text
       if (parsed.data.retweeted_status_result) {
         const rtResult = parsed.data.retweeted_status_result as Record<string, unknown>;
-        const rtLegacy = getNestedValue(rtResult, ['result', 'legacy']) as Record<string, unknown> | undefined;
+        const rtLegacy = getNestedValue(rtResult, ['result', 'legacy']) as
+          | Record<string, unknown>
+          | undefined;
         if (rtLegacy) {
           const rtParsed = tweetLegacySchema.safeParse(rtLegacy);
           if (rtParsed.success) {
@@ -375,7 +380,10 @@ export async function detectGqlIds(): Promise<{
   HomeLatestTimeline?: string;
 }> {
   const html = await fetch('https://x.com', {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    },
   }).then((r) => r.text());
 
   // Extract JS bundle URLs from script tags
@@ -387,7 +395,9 @@ export async function detectGqlIds(): Promise<{
   }
 
   if (scriptUrls.length === 0) {
-    throw new Error('Aucun bundle JS trouvé sur x.com — la structure de la page a peut-être changé');
+    throw new Error(
+      'Aucun bundle JS trouvé sur x.com — la structure de la page a peut-être changé',
+    );
   }
 
   const result: { UserByScreenName?: string; HomeLatestTimeline?: string } = {};
@@ -395,11 +405,17 @@ export async function detectGqlIds(): Promise<{
   const idPattern = /queryId:"([^"]+)",operationName:"([^"]+)",operationType:"query"/g;
 
   // Fetch bundles concurrently in batches, stop early once we found both
-  for (let i = 0; i < scriptUrls.length && (!result.UserByScreenName || !result.HomeLatestTimeline); i += 5) {
+  for (
+    let i = 0;
+    i < scriptUrls.length && (!result.UserByScreenName || !result.HomeLatestTimeline);
+    i += 5
+  ) {
     const batch = scriptUrls.slice(i, i + 5);
     const scripts = await Promise.all(
       batch.map((url) =>
-        fetch(url).then((r) => r.text()).catch(() => ''),
+        fetch(url)
+          .then((r) => r.text())
+          .catch(() => ''),
       ),
     );
 
@@ -418,10 +434,7 @@ export async function detectGqlIds(): Promise<{
   return result;
 }
 
-function getNestedValue(
-  obj: unknown,
-  path: string[],
-): unknown {
+function getNestedValue(obj: unknown, path: string[]): unknown {
   let current: unknown = obj;
   for (const key of path) {
     if (current == null || typeof current !== 'object') return undefined;

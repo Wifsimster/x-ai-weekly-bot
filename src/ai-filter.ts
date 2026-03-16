@@ -3,10 +3,10 @@ import type { Config } from './config.js';
 import type { Tweet } from './ports.js';
 import { logger } from './logger.js';
 
-const SYSTEM_PROMPT = `You are an AI news curator. You receive a list of tweets from a user's X timeline.
+const SYSTEM_PROMPT = `You are a tech news curator. You receive a list of tweets from a user's X timeline.
 
 Your task:
-1. Identify tweets related to artificial intelligence (AI, ML, LLMs, generative AI, computer vision, robotics, AI policy, etc.)
+1. Identify tweets related to AI and tech in general (AI, ML, LLMs, generative AI, computer vision, robotics, AI policy, software engineering, programming, open source, cloud, cybersecurity, hardware, startups, developer tools, web, mobile, data, etc.)
 2. Group them by theme
 3. Write a concise summary (under 2000 characters) in French
 4. Include source links where available
@@ -15,15 +15,15 @@ Your task:
 Format your response as a thread-ready text with clear sections separated by blank lines.
 Each section should have a bold theme header using uppercase.
 
-If none of the tweets are related to AI, respond with exactly: NO_AI_NEWS_FOUND`;
+If none of the tweets are related to AI or tech, respond with exactly: NO_TECH_NEWS_FOUND`;
 
-const MONTHLY_SYSTEM_PROMPT = `You are an AI news analyst. You receive several weekly AI news summaries.
+const MONTHLY_SYSTEM_PROMPT = `You are a tech news analyst. You receive several weekly AI & tech news summaries.
 
 Your task:
 1. Synthesize these weekly summaries into a coherent monthly overview in French
 2. Identify the major trends and recurring themes across weeks
 3. Highlight the most significant developments of the month
-4. Note any emerging patterns or shifts in the AI landscape
+4. Note any emerging patterns or shifts in the AI and tech landscape
 5. Keep the summary under 3000 characters
 
 Format your response with clear sections using bold uppercase theme headers.
@@ -67,18 +67,32 @@ export function createAIFilter(config: Config) {
       model: response.model,
     });
 
-    if (text.trim() === 'NO_AI_NEWS_FOUND') {
-      logger.info('No AI-related news found in tweets');
+    if (text.trim() === 'NO_TECH_NEWS_FOUND') {
+      logger.info('No AI/tech-related news found in tweets');
       return null;
     }
 
     return text.trim();
   }
 
-  async function synthesizeMonthlySummary(weeklySummaries: string[], year: number, month: number): Promise<string | null> {
+  async function synthesizeMonthlySummary(
+    weeklySummaries: string[],
+    year: number,
+    month: number,
+  ): Promise<string | null> {
     const monthNames = [
-      'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-      'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+      'janvier',
+      'février',
+      'mars',
+      'avril',
+      'mai',
+      'juin',
+      'juillet',
+      'août',
+      'septembre',
+      'octobre',
+      'novembre',
+      'décembre',
     ];
 
     const summaryTexts = weeklySummaries
@@ -92,7 +106,7 @@ export function createAIFilter(config: Config) {
         { role: 'system', content: MONTHLY_SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `Voici les résumés hebdomadaires IA du mois de ${monthNames[month - 1]} ${year} (${weeklySummaries.length} semaines) :\n\n${summaryTexts}`,
+          content: `Voici les résumés hebdomadaires IA & tech du mois de ${monthNames[month - 1]} ${year} (${weeklySummaries.length} semaines) :\n\n${summaryTexts}`,
         },
       ],
     });

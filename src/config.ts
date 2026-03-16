@@ -14,7 +14,6 @@ const configSchema = z.object({
   GITHUB_TOKEN: z.string().min(1),
   AI_MODEL: z.string().default('openai/gpt-4.1'),
   TWEETS_LOOKBACK_DAYS: z.coerce.number().int().positive().default(7),
-  MAX_TWEETS: z.coerce.number().int().positive().default(200),
   DRY_RUN: z
     .enum(['true', 'false', '1', '0'])
     .default('false')
@@ -95,7 +94,9 @@ export function tryLoadConfig(): ConfigResult | ConfigError {
   return parseConfig(process.env);
 }
 
-export function tryLoadConfigWithOverrides(overrides: Record<string, string>): ConfigResult | ConfigError {
+export function tryLoadConfigWithOverrides(
+  overrides: Record<string, string>,
+): ConfigResult | ConfigError {
   const merged: Record<string, string | undefined> = { ...process.env };
   for (const [key, value] of Object.entries(overrides)) {
     if (value) merged[key] = value;

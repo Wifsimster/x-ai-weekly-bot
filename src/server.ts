@@ -5,9 +5,30 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { logger } from './logger.js';
-import { getRunHistory, getLastRun, isRunning, triggerRun, getSuccessfulSummaries, countSuccessfulSummaries, getSuccessfulRunsByMonth } from './run-service.js';
-import { generateMonthlySummary, getMonthlySummary, listMonthlySummaries, getAvailableMonths } from './monthly-summary-service.js';
-import { getSettings, setSetting, isEditableKey, isCredentialKey, getSettingsMap, getSetting, maskCredential } from './settings-service.js';
+import {
+  getRunHistory,
+  getLastRun,
+  isRunning,
+  triggerRun,
+  getSuccessfulSummaries,
+  countSuccessfulSummaries,
+  getSuccessfulRunsByMonth,
+} from './run-service.js';
+import {
+  generateMonthlySummary,
+  getMonthlySummary,
+  listMonthlySummaries,
+  getAvailableMonths,
+} from './monthly-summary-service.js';
+import {
+  getSettings,
+  setSetting,
+  isEditableKey,
+  isCredentialKey,
+  getSettingsMap,
+  getSetting,
+  maskCredential,
+} from './settings-service.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
 import { validateXCookies, detectGqlIds, DEFAULT_GQL_IDS } from './adapters/scraper-reader.js';
 
@@ -32,10 +53,10 @@ function buildEnvDefaults(config: Config, cronSchedule: string) {
   return {
     AI_MODEL: config.AI_MODEL,
     TWEETS_LOOKBACK_DAYS: String(config.TWEETS_LOOKBACK_DAYS),
-    MAX_TWEETS: String(config.MAX_TWEETS),
     DRY_RUN: String(config.DRY_RUN),
     CRON_SCHEDULE: cronSchedule,
-    X_GQL_USER_BY_SCREEN_NAME_ID: config.X_GQL_USER_BY_SCREEN_NAME_ID || DEFAULT_GQL_IDS.UserByScreenName,
+    X_GQL_USER_BY_SCREEN_NAME_ID:
+      config.X_GQL_USER_BY_SCREEN_NAME_ID || DEFAULT_GQL_IDS.UserByScreenName,
     X_GQL_HOME_TIMELINE_ID: config.X_GQL_HOME_TIMELINE_ID || DEFAULT_GQL_IDS.HomeLatestTimeline,
   };
 }
@@ -56,7 +77,7 @@ export function startServer(
       basicAuth({
         username: 'admin',
         password: process.env.ADMIN_PASSWORD,
-      })
+      }),
     );
   }
 
@@ -65,10 +86,13 @@ export function startServer(
     if (isConfigured) {
       return c.json({ status: 'ok' });
     }
-    return c.json({
-      status: 'unconfigured',
-      missing: (missingCredentials || []).map((m) => m.key),
-    }, 503);
+    return c.json(
+      {
+        status: 'unconfigured',
+        missing: (missingCredentials || []).map((m) => m.key),
+      },
+      503,
+    );
   });
 
   // --- API endpoints (JSON only) ---
@@ -92,14 +116,28 @@ export function startServer(
   if (!isConfigured) {
     // In setup mode — limited API
     app.post('/api/trigger', (c) =>
-      c.json({ success: false, message: 'Configuration incomplète. Configurez les variables d\'environnement requises.' })
+      c.json({
+        success: false,
+        message: "Configuration incomplète. Configurez les variables d'environnement requises.",
+      }),
     );
     app.get('/api/status', (c) =>
-      c.json({ running: false, configured: false, missing: (missingCredentials || []).map((m) => m.key), cronSchedule, totalRuns: 0 })
+      c.json({
+        running: false,
+        configured: false,
+        missing: (missingCredentials || []).map((m) => m.key),
+        cronSchedule,
+        totalRuns: 0,
+      }),
     );
     app.get('/api/runs', (c) => c.json([]));
     app.get('/api/settings', (c) => c.json([]));
-    app.get('/api/config', (c) => c.json({ envDefaults: {}, credentialInfo: { authTokenMasked: '', csrfTokenMasked: '', hasAuth: false } }));
+    app.get('/api/config', (c) =>
+      c.json({
+        envDefaults: {},
+        credentialInfo: { authTokenMasked: '', csrfTokenMasked: '', hasAuth: false },
+      }),
+    );
   } else {
     // Normal operational mode — full API
 
@@ -122,7 +160,7 @@ export function startServer(
 
     app.get('/api/settings', (c) => {
       const settings = getSettings().map((s) =>
-        isCredentialKey(s.key) ? { ...s, value: maskCredential(s.value) } : s
+        isCredentialKey(s.key) ? { ...s, value: maskCredential(s.value) } : s,
       );
       return c.json(settings);
     });
@@ -153,8 +191,10 @@ export function startServer(
 
     app.post('/api/credentials', async (c) => {
       const body = await c.req.json();
-      const authToken = typeof body.X_SESSION_AUTH_TOKEN === 'string' ? body.X_SESSION_AUTH_TOKEN.trim() : '';
-      const csrfToken = typeof body.X_SESSION_CSRF_TOKEN === 'string' ? body.X_SESSION_CSRF_TOKEN.trim() : '';
+      const authToken =
+        typeof body.X_SESSION_AUTH_TOKEN === 'string' ? body.X_SESSION_AUTH_TOKEN.trim() : '';
+      const csrfToken =
+        typeof body.X_SESSION_CSRF_TOKEN === 'string' ? body.X_SESSION_CSRF_TOKEN.trim() : '';
 
       if (!authToken || !csrfToken) {
         return c.json({
@@ -182,7 +222,8 @@ export function startServer(
 
       return c.json({
         success: true,
-        message: 'Cookies de session mis à jour et validés avec succès. Les prochains runs utiliseront ces valeurs.',
+        message:
+          'Cookies de session mis à jour et validés avec succès. Les prochains runs utiliseront ces valeurs.',
       });
     });
 
@@ -250,9 +291,16 @@ export function startServer(
           saved.HomeLatestTimeline = ids.HomeLatestTimeline;
         }
         if (Object.keys(saved).length === 0) {
-          return c.json({ success: false, message: 'Aucun ID GraphQL trouvé dans les bundles JS de x.com.' });
+          return c.json({
+            success: false,
+            message: 'Aucun ID GraphQL trouvé dans les bundles JS de x.com.',
+          });
         }
-        return c.json({ success: true, message: 'IDs GraphQL détectés et sauvegardés.', ids: saved });
+        return c.json({
+          success: true,
+          message: 'IDs GraphQL détectés et sauvegardés.',
+          ids: saved,
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return c.json({ success: false, message: `Erreur de détection : ${msg}` });
@@ -268,10 +316,15 @@ export function startServer(
       const mergedConfig = buildMergedConfig(config, overrides);
 
       triggerRun(mergedConfig, 'manual').catch((err) => {
-        logger.error('Manual trigger failed', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('Manual trigger failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
-      return c.json({ success: true, message: 'Run lancé ! La page se rafraîchira automatiquement.' });
+      return c.json({
+        success: true,
+        message: 'Run lancé ! La page se rafraîchira automatiquement.',
+      });
     });
   }
 
@@ -310,12 +363,19 @@ function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>
   return {
     ...baseConfig,
     ...(overrides.AI_MODEL && { AI_MODEL: overrides.AI_MODEL }),
-    ...(overrides.TWEETS_LOOKBACK_DAYS && { TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS) }),
-    ...(overrides.MAX_TWEETS && { MAX_TWEETS: Number(overrides.MAX_TWEETS) }),
-    ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
+    ...(overrides.TWEETS_LOOKBACK_DAYS && {
+      TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS),
+    }),
+    ...(overrides.DRY_RUN !== undefined && {
+      DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1',
+    }),
     ...(overrides.X_SESSION_AUTH_TOKEN && { X_SESSION_AUTH_TOKEN: overrides.X_SESSION_AUTH_TOKEN }),
     ...(overrides.X_SESSION_CSRF_TOKEN && { X_SESSION_CSRF_TOKEN: overrides.X_SESSION_CSRF_TOKEN }),
-    ...(overrides.X_GQL_USER_BY_SCREEN_NAME_ID && { X_GQL_USER_BY_SCREEN_NAME_ID: overrides.X_GQL_USER_BY_SCREEN_NAME_ID }),
-    ...(overrides.X_GQL_HOME_TIMELINE_ID && { X_GQL_HOME_TIMELINE_ID: overrides.X_GQL_HOME_TIMELINE_ID }),
+    ...(overrides.X_GQL_USER_BY_SCREEN_NAME_ID && {
+      X_GQL_USER_BY_SCREEN_NAME_ID: overrides.X_GQL_USER_BY_SCREEN_NAME_ID,
+    }),
+    ...(overrides.X_GQL_HOME_TIMELINE_ID && {
+      X_GQL_HOME_TIMELINE_ID: overrides.X_GQL_HOME_TIMELINE_ID,
+    }),
   };
 }

@@ -50,34 +50,33 @@ Le planificateur déclenche chaque semaine le scraping de votre timeline X. Les 
 
 ## Environnements
 
-| Environnement | URL | Description |
-|---------------|-----|-------------|
-| Développement | `http://localhost:3000` | Environnement local |
-| Production | Container Docker | Déployé via GitHub Actions sur serveur auto-hébergé |
+| Environnement | URL                     | Description                                         |
+| ------------- | ----------------------- | --------------------------------------------------- |
+| Développement | `http://localhost:3000` | Environnement local                                 |
+| Production    | Container Docker        | Déployé via GitHub Actions sur serveur auto-hébergé |
 
 ## Configuration
 
 ### Identifiants requis
 
-| Variable | Description | Comment l'obtenir |
-|----------|-------------|-------------------|
-| `X_USERNAME` | Nom d'utilisateur X (sans @) | Votre profil X |
-| `X_SESSION_AUTH_TOKEN` | Cookie de session X | DevTools → Cookies → `auth_token` |
-| `X_SESSION_CSRF_TOKEN` | Token CSRF X | DevTools → Cookies → `ct0` |
-| `GITHUB_TOKEN` | Token GitHub (scope `models:read`) | [github.com/settings/tokens](https://github.com/settings/tokens) |
+| Variable               | Description                        | Comment l'obtenir                                                |
+| ---------------------- | ---------------------------------- | ---------------------------------------------------------------- |
+| `X_USERNAME`           | Nom d'utilisateur X (sans @)       | Votre profil X                                                   |
+| `X_SESSION_AUTH_TOKEN` | Cookie de session X                | DevTools → Cookies → `auth_token`                                |
+| `X_SESSION_CSRF_TOKEN` | Token CSRF X                       | DevTools → Cookies → `ct0`                                       |
+| `GITHUB_TOKEN`         | Token GitHub (scope `models:read`) | [github.com/settings/tokens](https://github.com/settings/tokens) |
 
 ### Variables optionnelles
 
-| Variable | Défaut | Description |
-|----------|--------|-------------|
-| `AI_MODEL` | `openai/gpt-4.1` | Modèle IA ([catalogue](https://github.com/marketplace/models)) |
-| `TWEETS_LOOKBACK_DAYS` | `7` | Nombre de jours à scanner |
-| `MAX_TWEETS` | `200` | Nombre max de tweets à analyser |
-| `DRY_RUN` | `false` | Mode test (ne publie pas sur X) |
-| `CRON_SCHEDULE` | `0 18 * * 0` | Expression cron du planificateur |
-| `ADMIN_PASSWORD` | — | Mot de passe pour le tableau de bord |
-| `WEB_PORT` | `3000` | Port du serveur web |
-| `DB_PATH` | `./data/bot.db` | Chemin de la base SQLite |
+| Variable               | Défaut           | Description                                                    |
+| ---------------------- | ---------------- | -------------------------------------------------------------- |
+| `AI_MODEL`             | `openai/gpt-4.1` | Modèle IA ([catalogue](https://github.com/marketplace/models)) |
+| `TWEETS_LOOKBACK_DAYS` | `7`              | Nombre de jours à scanner                                      |
+| `DRY_RUN`              | `false`          | Mode test (ne publie pas sur X)                                |
+| `CRON_SCHEDULE`        | `0 18 * * 0`     | Expression cron du planificateur                               |
+| `ADMIN_PASSWORD`       | —                | Mot de passe pour le tableau de bord                           |
+| `WEB_PORT`             | `3000`           | Port du serveur web                                            |
+| `DB_PATH`              | `./data/bot.db`  | Chemin de la base SQLite                                       |
 
 Les identifiants peuvent aussi être renseignés depuis l'interface web (assistant de configuration).
 
