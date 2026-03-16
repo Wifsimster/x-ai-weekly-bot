@@ -19,6 +19,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
+import { MarkdownContent } from '@/components/markdown-content';
 import type { StatusResponse } from '@/types';
 
 export function DashboardPage() {
@@ -130,7 +131,7 @@ export function DashboardPage() {
             {lastRun.summary && (
               <div className="rounded-lg border border-l-4 border-l-primary/30 p-4">
                 <p className="font-semibold mb-2">Synthèse de la veille</p>
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">{lastRun.summary}</div>
+                <MarkdownContent content={lastRun.summary} className="text-sm" />
               </div>
             )}
 

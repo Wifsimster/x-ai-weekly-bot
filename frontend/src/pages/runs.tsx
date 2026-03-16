@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MarkdownContent } from "@/components/markdown-content";
 import type { RunRecord } from "@/types";
 
 function RunCard({ run }: { run: RunRecord }) {
@@ -30,8 +31,8 @@ function RunCard({ run }: { run: RunRecord }) {
         {run.summary && (
           <details>
             <summary className="cursor-pointer text-sm text-primary hover:underline">Voir le résumé</summary>
-            <div className="mt-2 whitespace-pre-wrap text-xs leading-relaxed p-2 rounded bg-muted">
-              {run.summary}
+            <div className="mt-2 p-2 rounded bg-muted">
+              <MarkdownContent content={run.summary} className="text-xs" />
             </div>
           </details>
         )}
@@ -120,8 +121,8 @@ export function RunsPage() {
                   {run.summary ? (
                     <details>
                       <summary className="cursor-pointer text-sm text-primary hover:underline">Voir le résumé</summary>
-                      <div className="mt-2 max-w-md whitespace-pre-wrap text-xs leading-relaxed p-2 rounded bg-muted">
-                        {run.summary}
+                      <div className="mt-2 max-w-md p-2 rounded bg-muted">
+                        <MarkdownContent content={run.summary} className="text-xs" />
                       </div>
                     </details>
                   ) : (
