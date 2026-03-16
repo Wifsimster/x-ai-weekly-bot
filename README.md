@@ -33,8 +33,7 @@ Ajouter les secrets suivants dans **Settings > Secrets and variables > Actions**
 | `X_ACCESS_TOKEN_SECRET` | Access Token Secret X |
 | `X_USERNAME` | Nom d'utilisateur X (ex: `wifsimster`) |
 | `ANTHROPIC_API_KEY` | Clé API Anthropic |
-| `DOCKERHUB_USERNAME` | Nom d'utilisateur Docker Hub |
-| `DOCKERHUB_TOKEN` | Token Docker Hub |
+| `GITHUB_TOKEN` | Automatiquement fourni par GitHub Actions (accès GHCR) |
 
 ## Développement local
 
@@ -60,7 +59,7 @@ npm run dev
 ### Architecture
 
 ```
-GitHub push → CI (lint, build, Docker) → Docker Hub → Self-hosted runner → docker compose up
+GitHub push → CI (lint, build, Docker) → GHCR → Self-hosted runner → docker compose up
 ```
 
 Le container tourne en continu avec `node-cron` qui déclenche le résumé hebdomadaire chaque **dimanche à 18h00 UTC**.
@@ -79,7 +78,7 @@ docker compose up -d
 Le workflow `release.yml` se déclenche sur chaque push sur `main` :
 1. Détection du type de release (conventional commits)
 2. Lint & type check
-3. Build & push image Docker sur Docker Hub
+3. Build & push image Docker sur GitHub Container Registry (ghcr.io)
 4. Déploiement automatique via self-hosted runner
 
 Déclenchement manuel possible via **Actions > Release > Run workflow**.

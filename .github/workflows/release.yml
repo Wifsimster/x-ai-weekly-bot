@@ -154,11 +154,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract version parts
         id: version_parts
@@ -176,10 +177,10 @@ jobs:
           context: .
           push: true
           tags: |
-            wifsimster/x-ai-weekly-bot:latest
-            wifsimster/x-ai-weekly-bot:v${{ steps.version_parts.outputs.full }}
-            wifsimster/x-ai-weekly-bot:${{ steps.version_parts.outputs.minor }}
-            wifsimster/x-ai-weekly-bot:${{ steps.version_parts.outputs.major }}
+            ghcr.io/wifsimster/x-ai-weekly-bot:latest
+            ghcr.io/wifsimster/x-ai-weekly-bot:v${{ steps.version_parts.outputs.full }}
+            ghcr.io/wifsimster/x-ai-weekly-bot:${{ steps.version_parts.outputs.minor }}
+            ghcr.io/wifsimster/x-ai-weekly-bot:${{ steps.version_parts.outputs.major }}
           build-args: |
             VERSION=${{ steps.version.outputs.new_version }}
             BUILD_DATE=${{ github.event.repository.updated_at }}

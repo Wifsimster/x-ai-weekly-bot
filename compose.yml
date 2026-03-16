@@ -2,7 +2,7 @@ name: x-ai-weekly-bot
 
 services:
   x-ai-weekly-bot:
-    image: wifsimster/x-ai-weekly-bot:latest
+    image: ghcr.io/wifsimster/x-ai-weekly-bot:latest
     container_name: x-ai-weekly-bot
     restart: unless-stopped
     env_file:
