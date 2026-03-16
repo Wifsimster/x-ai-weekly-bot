@@ -37,6 +37,8 @@ export function SettingsPage() {
   const [flash, setFlash] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingCreds, setSavingCreds] = useState(false);
+  const [savingDiscord, setSavingDiscord] = useState(false);
+  const [testingDiscord, setTestingDiscord] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const selectValuesRef = useRef<Record<string, string>>({});
 
@@ -211,6 +213,87 @@ export function SettingsPage() {
           >
             {detecting ? 'Détection en cours...' : 'Détecter les IDs GraphQL'}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="font-semibold">Notifications Discord</div>
+          <p className="text-sm text-muted-foreground">
+            Recevez automatiquement les résumés hebdomadaires sur un salon Discord via webhook.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setSavingDiscord(true);
+              setFlash(null);
+              const formData = new FormData(e.currentTarget);
+              const url = (formData.get('DISCORD_WEBHOOK_URL') as string)?.trim();
+              try {
+                const res = await fetch('/api/discord-webhook', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ DISCORD_WEBHOOK_URL: url }),
+                });
+                const data = await res.json();
+                setFlash({ type: data.success ? 'success' : 'error', message: data.message });
+                if (data.success) e.currentTarget.reset();
+              } catch {
+                setFlash({ type: 'error', message: 'Erreur lors de la sauvegarde du webhook.' });
+              } finally {
+                setSavingDiscord(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="discord_webhook">URL du Webhook</Label>
+              <Input
+                id="discord_webhook"
+                name="DISCORD_WEBHOOK_URL"
+                type="password"
+                placeholder="https://discord.com/api/webhooks/..."
+                autoComplete="off"
+              />
+              <p className="text-xs text-muted-foreground">
+                {credentialInfo.discordWebhookMasked ? (
+                  <>
+                    Valeur actuelle :{' '}
+                    <code className="font-mono">{credentialInfo.discordWebhookMasked}</code>
+                  </>
+                ) : (
+                  'Non configuré'
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button type="submit" disabled={savingDiscord}>
+                {savingDiscord ? 'Enregistrement...' : 'Sauvegarder'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={testingDiscord || !credentialInfo.discordWebhookMasked}
+                onClick={async () => {
+                  setTestingDiscord(true);
+                  setFlash(null);
+                  try {
+                    const res = await fetch('/api/test-discord', { method: 'POST' });
+                    const data = await res.json();
+                    setFlash({ type: data.success ? 'success' : 'error', message: data.message });
+                  } catch {
+                    setFlash({ type: 'error', message: 'Erreur lors du test.' });
+                  } finally {
+                    setTestingDiscord(false);
+                  }
+                }}
+              >
+                {testingDiscord ? 'Envoi en cours...' : 'Tester le webhook'}
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
 
