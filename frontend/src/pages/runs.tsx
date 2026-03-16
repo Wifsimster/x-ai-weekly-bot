@@ -1,12 +1,28 @@
 import { useApi } from "@/hooks/use-api";
 import { StatusBadge } from "@/components/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import type { RunRecord } from "@/types";
 
 export function RunsPage() {
   const { data: runs, loading } = useApi<RunRecord[]>("/api/runs?limit=50");
 
-  if (loading) return <div className="text-muted-foreground">Chargement...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="mt-2 h-4 w-48" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-full rounded" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -19,12 +35,12 @@ export function RunsPage() {
         <TableHeader>
           <TableRow>
             <TableHead>#</TableHead>
-            <TableHead>Debut</TableHead>
+            <TableHead>Début</TableHead>
             <TableHead>Fin</TableHead>
             <TableHead>Statut</TableHead>
-            <TableHead>Declencheur</TableHead>
+            <TableHead>Déclencheur</TableHead>
             <TableHead>Tweets</TableHead>
-            <TableHead>Resume</TableHead>
+            <TableHead>Résumé</TableHead>
             <TableHead>Erreur</TableHead>
           </TableRow>
         </TableHeader>
@@ -32,7 +48,7 @@ export function RunsPage() {
           {(!runs || runs.length === 0) && (
             <TableRow>
               <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                Aucun run enregistre.
+                Aucun run enregistré.
               </TableCell>
             </TableRow>
           )}
@@ -49,7 +65,7 @@ export function RunsPage() {
               <TableCell>
                 {run.summary ? (
                   <details>
-                    <summary className="cursor-pointer text-sm text-primary hover:underline">Voir le resume</summary>
+                    <summary className="cursor-pointer text-sm text-primary hover:underline">Voir le résumé</summary>
                     <div className="mt-2 max-w-md whitespace-pre-wrap text-xs leading-relaxed p-2 rounded bg-muted">
                       {run.summary}
                     </div>

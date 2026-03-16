@@ -1,7 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useTheme } from "@/components/theme-provider";
 import { useApi } from "@/hooks/use-api";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
+function navLinkClass({ isActive }: { isActive: boolean }) {
+  return cn("text-sm transition-colors hover:text-foreground", isActive ? "text-foreground font-medium" : "text-muted-foreground");
+}
 
 export function Layout() {
   const { theme, setTheme } = useTheme();
@@ -13,41 +18,25 @@ export function Layout() {
         <div className="container mx-auto flex items-center justify-between px-4 h-14">
           <span className="font-bold text-lg">X AI Weekly Bot</span>
           <div className="flex items-center gap-4">
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                cn("text-sm transition-colors hover:text-foreground", isActive ? "text-foreground font-medium" : "text-muted-foreground")
-              }
-            >
+            <NavLink to="/" end className={navLinkClass}>
               Dashboard
             </NavLink>
-            <NavLink
-              to="/runs"
-              className={({ isActive }) =>
-                cn("text-sm transition-colors hover:text-foreground", isActive ? "text-foreground font-medium" : "text-muted-foreground")
-              }
-            >
+            <NavLink to="/runs" className={navLinkClass}>
               Historique
             </NavLink>
-            <NavLink
-              to="/settings"
-              className={({ isActive }) =>
-                cn("text-sm transition-colors hover:text-foreground", isActive ? "text-foreground font-medium" : "text-muted-foreground")
-              }
-            >
-              Parametres
+            <NavLink to="/settings" className={navLinkClass}>
+              Paramètres
             </NavLink>
-            <select
-              value={theme}
-              onChange={(e) => setTheme(e.target.value as "light" | "dark" | "system")}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-              aria-label="Theme"
-            >
-              <option value="system">Systeme</option>
-              <option value="light">Clair</option>
-              <option value="dark">Sombre</option>
-            </select>
+            <Select value={theme} onValueChange={(v) => setTheme(v as "light" | "dark" | "system")}>
+              <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Thème">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="system">Système</SelectItem>
+                <SelectItem value="light">Clair</SelectItem>
+                <SelectItem value="dark">Sombre</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </nav>

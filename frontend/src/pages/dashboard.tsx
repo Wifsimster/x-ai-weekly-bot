@@ -5,6 +5,18 @@ import { StatCard } from "@/components/stat-card";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import type { StatusResponse } from "@/types";
 
 export function DashboardPage() {
@@ -13,7 +25,6 @@ export function DashboardPage() {
   const [triggerMessage, setTriggerMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const handleTrigger = async () => {
-    if (!confirm("Lancer un run maintenant ?")) return;
     setTriggering(true);
     setTriggerMessage(null);
     try {
@@ -22,13 +33,28 @@ export function DashboardPage() {
       setTriggerMessage({ type: data.success ? "success" : "error", text: data.message });
       setTimeout(() => refetch(), 1000);
     } catch {
-      setTriggerMessage({ type: "error", text: "Erreur lors du declenchement du run." });
+      setTriggerMessage({ type: "error", text: "Erreur lors du déclenchement du run." });
     } finally {
       setTriggering(false);
     }
   };
 
-  if (loading) return <div className="text-muted-foreground">Chargement...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="mt-2 h-4 w-72" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+        </div>
+        <Skeleton className="h-48 rounded-lg" />
+      </div>
+    );
+  }
   if (!status) return null;
 
   const { lastRun, cronSchedule, running, totalRuns } = status;
@@ -47,11 +73,11 @@ export function DashboardPage() {
 
       {cookiesExpired && (
         <Alert variant="destructive">
-          <AlertTitle>Session cookies expires</AlertTitle>
+          <AlertTitle>Session cookies expirés</AlertTitle>
           <AlertDescription>
-            Vos cookies de session X semblent avoir expire.{" "}
+            Vos cookies de session X semblent avoir expiré.{" "}
             <a href="/settings" className="underline font-medium">
-              Mettez-les a jour dans Parametres
+              Mettez-les à jour dans Paramètres
             </a>
             .
           </AlertDescription>
@@ -84,14 +110,14 @@ export function DashboardPage() {
                 <p className="font-medium">{lastRun.started_at}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Tweets analyses</p>
+                <p className="text-sm text-muted-foreground">Tweets analysés</p>
                 <p className="font-medium">{lastRun.tweets_fetched}</p>
               </div>
             </div>
 
             {lastRun.summary && (
               <div className="rounded-lg border p-4">
-                <p className="font-semibold mb-2">Resume IA</p>
+                <p className="font-semibold mb-2">Résumé IA</p>
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">{lastRun.summary}</div>
               </div>
             )}
@@ -108,7 +134,7 @@ export function DashboardPage() {
 
       {!lastRun && (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">Aucun run enregistre.</CardContent>
+          <CardContent className="py-8 text-center text-muted-foreground">Aucun run enregistré.</CardContent>
         </Card>
       )}
 
@@ -118,9 +144,25 @@ export function DashboardPage() {
         </Alert>
       )}
 
-      <Button onClick={handleTrigger} disabled={running || triggering} className="w-full sm:w-auto">
-        {running || triggering ? "Run en cours..." : "Lancer un run maintenant"}
-      </Button>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button disabled={running || triggering} className="w-full sm:w-auto">
+            {running || triggering ? "Run en cours..." : "Lancer un run maintenant"}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Lancer un run maintenant ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action va déclencher un scraping de votre timeline X et générer un résumé IA des actualités.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleTrigger}>Lancer le run</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
