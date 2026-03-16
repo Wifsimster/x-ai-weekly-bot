@@ -61,6 +61,7 @@ export function DashboardPage() {
   const cookiesExpired =
     lastRun?.error_message?.includes("401") ||
     lastRun?.error_message?.includes("403") ||
+    lastRun?.error_message?.includes("404") ||
     lastRun?.error_message?.includes("Session cookies") ||
     false;
 
