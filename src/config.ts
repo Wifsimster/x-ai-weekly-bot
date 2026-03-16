@@ -41,28 +41,28 @@ export const REQUIRED_CREDENTIALS = [
     label: 'X (Twitter) Username',
     docUrl: 'https://x.com/',
     howToFind:
-      'Votre nom d\'utilisateur X (sans le @). Visible dans votre profil X : <strong>x.com → Profil → le texte après le @</strong> (ex: <code>wifsimster</code>).',
+      'Votre nom d\'utilisateur X (sans le @), ex: <code>wifsimster</code>. Visible sur <a href="https://x.com/" target="_blank" rel="noopener">votre profil X</a> après le @.',
   },
   {
     key: 'X_SESSION_AUTH_TOKEN',
     label: 'X Session Auth Token (cookie: auth_token)',
     docUrl: 'https://x.com/',
     howToFind:
-      'Connectez-vous sur <strong>x.com</strong>, puis ouvrez les DevTools du navigateur (<kbd>F12</kbd>) → onglet <strong>Application</strong> (Chrome) ou <strong>Stockage</strong> (Firefox) → <strong>Cookies</strong> → <code>https://x.com</code> → copiez la valeur du cookie <code>auth_token</code>.',
+      'Connectez-vous sur <a href="https://x.com/" target="_blank" rel="noopener">x.com</a>, ouvrez les DevTools (<kbd>F12</kbd>), onglet <strong>Application</strong> (Chrome) ou <strong>Stockage</strong> (Firefox), puis <strong>Cookies</strong> &gt; <code>https://x.com</code> et copiez la valeur du cookie <code>auth_token</code>.',
   },
   {
     key: 'X_SESSION_CSRF_TOKEN',
     label: 'X Session CSRF Token (cookie: ct0)',
     docUrl: 'https://x.com/',
     howToFind:
-      'Même endroit que le auth_token : DevTools (<kbd>F12</kbd>) → <strong>Application</strong> → <strong>Cookies</strong> → <code>https://x.com</code> → copiez la valeur du cookie <code>ct0</code>.',
+      'Même endroit que le auth_token : dans les DevTools (<kbd>F12</kbd>), <strong>Cookies</strong> &gt; <code>https://x.com</code>, copiez la valeur du cookie <code>ct0</code>.',
   },
   {
     key: 'GITHUB_TOKEN',
     label: 'GitHub Personal Access Token',
-    docUrl: 'https://github.com/settings/tokens',
+    docUrl: 'https://github.com/settings/tokens?type=beta',
     howToFind:
-      'Rendez-vous sur <strong>github.com</strong> → <strong>Settings</strong> → <strong>Developer settings</strong> → <strong>Personal access tokens</strong> → <strong>Fine-grained tokens</strong> → <strong>Generate new token</strong>. Activez le scope <code>models:read</code>. Le token commence par <code>github_pat_...</code>.',
+      'Créez un token sur <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> (Fine-grained token). Activez le scope <code>models:read</code>. Le token commence par <code>github_pat_...</code>.',
   },
 ] as const;
 
