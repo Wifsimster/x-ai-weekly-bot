@@ -1,0 +1,28 @@
+name: x-ai-weekly-bot
+
+services:
+  x-ai-weekly-bot:
+    image: wifsimster/x-ai-weekly-bot:latest
+    container_name: x-ai-weekly-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Paris
+      - NODE_ENV=production
+      - X_API_KEY=${X_API_KEY}
+      - X_API_SECRET=${X_API_SECRET}
+      - X_ACCESS_TOKEN=${X_ACCESS_TOKEN}
+      - X_ACCESS_TOKEN_SECRET=${X_ACCESS_TOKEN_SECRET}
+      - X_USERNAME=${X_USERNAME}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      lan:
+
+networks:
+  lan:
+    external: true

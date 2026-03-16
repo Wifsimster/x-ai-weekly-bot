@@ -1,0 +1,213 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "Version bump type"
+        required: false
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: "patch"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  detect-release:
+    name: Detect Release Type
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (
+        github.event_name == 'push'
+        && github.actor != 'github-actions[bot]'
+        && !startsWith(github.event.head_commit.message, 'chore: bump version')
+      )
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      bump_type: ${{ steps.check.outputs.bump_type }}
+    steps:
+      - name: Analyze commit for release type
+        id: check
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          EVENT_NAME: ${{ github.event_name }}
+          VERSION_INPUT: ${{ inputs.version_type }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "bump_type=$VERSION_INPUT" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          FIRST_LINE=$(echo "$COMMIT_MSG" | head -1)
+
+          if echo "$FIRST_LINE" | grep -qE "^(feat|feature)(\(.+\))?!:|^BREAKING CHANGE:"; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "bump_type=major" >> $GITHUB_OUTPUT
+          elif echo "$FIRST_LINE" | grep -qE "^(feat|feature)(\(.+\))?:"; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+          elif echo "$FIRST_LINE" | grep -qE "^fix(\(.+\))?:"; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+          else
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    needs: [detect-release]
+    if: needs.detect-release.outputs.should_release == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Type check
+        run: npm run build
+
+  release:
+    name: Create Release & Publish Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint, detect-release]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump version
+        env:
+          HUSKY: "0"
+        run: npm run version:${{ needs.detect-release.outputs.bump_type }}
+
+      - name: Read version
+        id: version
+        run: |
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "## What's Changed" > CHANGELOG_TEMP.md
+          echo "" >> CHANGELOG_TEMP.md
+          if [ -z "$PREVIOUS_TAG" ]; then
+            git log --pretty=format:"- %s (%h)" >> CHANGELOG_TEMP.md
+          else
+            git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges >> CHANGELOG_TEMP.md
+          fi
+          echo "changelog_file=CHANGELOG_TEMP.md" >> $GITHUB_OUTPUT
+
+      - name: Commit version bump
+        env:
+          HUSKY: "0"
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+
+      - name: Create tag
+        run: git tag -fa "v${{ steps.version.outputs.new_version }}" -m "Release v${{ steps.version.outputs.new_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract version parts
+        id: version_parts
+        run: |
+          VERSION="${{ steps.version.outputs.new_version }}"
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f1-2)
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "full=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            wifsimster/x-ai-weekly-bot:latest
+            wifsimster/x-ai-weekly-bot:v${{ steps.version_parts.outputs.full }}
+            wifsimster/x-ai-weekly-bot:${{ steps.version_parts.outputs.minor }}
+            wifsimster/x-ai-weekly-bot:${{ steps.version_parts.outputs.major }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.new_version }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max,ignore-error=true
+          platforms: linux/amd64
+
+      - name: Push changes
+        env:
+          HUSKY: "0"
+        run: |
+          git push origin main
+          git push origin "v${{ steps.version.outputs.new_version }}" --force
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.new_version }}
+          name: Release v${{ steps.version.outputs.new_version }}
+          body_path: ${{ steps.changelog.outputs.changelog_file }}
+          draft: false
+          prerelease: false
+
+  deploy:
+    name: Deploy to Production
+    runs-on: self-hosted
+    needs: [release]
+    steps:
+      - name: Deploy
+        run: /home/deploy/deploy-x-ai-weekly-bot.sh

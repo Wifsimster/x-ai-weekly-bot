@@ -1,12 +1,11 @@
-import { loadConfig } from './config.js';
+import { loadConfig, type Config } from './config.js';
 import { logger } from './logger.js';
 import { createXClient } from './x-client.js';
 import { createAIFilter } from './ai-filter.js';
 import { buildThread } from './thread-builder.js';
 
-async function main() {
-  const config = loadConfig();
-  logger.info('Starting X AI Weekly Bot', {
+export async function run(config: Config) {
+  logger.info('Starting weekly summary', {
     username: config.X_USERNAME,
     lookbackDays: config.TWEETS_LOOKBACK_DAYS,
     dryRun: config.DRY_RUN,
@@ -49,10 +48,15 @@ async function main() {
   logger.info('Thread posted successfully', { tweetIds });
 }
 
-main().catch((err) => {
-  logger.error('Fatal error', {
-    message: err instanceof Error ? err.message : String(err),
-    stack: err instanceof Error ? err.stack : undefined,
+// One-shot mode when run directly
+const isDirectRun = process.argv[1]?.endsWith('index.js');
+if (isDirectRun) {
+  const config = loadConfig();
+  run(config).catch((err) => {
+    logger.error('Fatal error', {
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+    process.exit(1);
   });
-  process.exit(1);
-});
+}

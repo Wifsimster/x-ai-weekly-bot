@@ -1,0 +1,71 @@
+# Build arguments
+ARG VERSION=dev
+ARG BUILD_DATE
+ARG VCS_REF
+
+# Stage 1: Install dependencies
+FROM node:24-alpine AS deps
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Stage 2: Build TypeScript
+FROM deps AS builder
+WORKDIR /app
+
+COPY tsconfig.json ./
+COPY src ./src
+
+RUN npm run build
+
+# Stage 3: Production runtime
+FROM node:24-alpine AS runner
+
+# Build arguments for labels
+ARG VERSION
+ARG BUILD_DATE
+ARG VCS_REF
+
+# Image metadata
+LABEL org.opencontainers.image.title="X AI Weekly Bot" \
+    org.opencontainers.image.description="Weekly AI news bot for X" \
+    org.opencontainers.image.version="${VERSION}" \
+    org.opencontainers.image.created="${BUILD_DATE}" \
+    org.opencontainers.image.revision="${VCS_REF}" \
+    org.opencontainers.image.source="https://github.com/wifsimster/x-ai-weekly-bot" \
+    org.opencontainers.image.vendor="wifsimster" \
+    maintainer="wifsimster"
+
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 bot
+
+# Copy package files for production install
+COPY package.json package-lock.json ./
+
+# Install production dependencies only
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copy built artifacts
+COPY --from=builder /app/dist ./dist
+
+# Copy startup script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Set ownership
+RUN chown -R bot:nodejs /app
+
+# Switch to non-root user
+USER bot
+
+ENV NODE_ENV=production
+
+# Health check — verify the node process is alive
+HEALTHCHECK --interval=60s --timeout=5s --start-period=10s --retries=3 \
+    CMD pgrep -x node > /dev/null || exit 1
+
+CMD ["/docker-entrypoint.sh"]
