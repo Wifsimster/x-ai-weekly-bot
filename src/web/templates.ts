@@ -43,7 +43,7 @@ export function layout(title: string, content: string, currentPath: string): str
     ${content}
   </main>
   <footer class="container">
-    <small>X AI Weekly Bot — Back-office</small>
+    <small>X AI Weekly Bot v${process.env.APP_VERSION || 'dev'}${process.env.APP_BUILD_DATE ? ` — Build ${process.env.APP_BUILD_DATE}` : ''}</small>
   </footer>
 </body>
 </html>`;
@@ -301,7 +301,7 @@ export function setupLayout(title: string, content: string): string {
     ${content}
   </main>
   <footer class="container" style="max-width: 700px;">
-    <small>X AI Weekly Bot — Configuration initiale</small>
+    <small>X AI Weekly Bot v${process.env.APP_VERSION || 'dev'}${process.env.APP_BUILD_DATE ? ` — Build ${process.env.APP_BUILD_DATE}` : ''}</small>
   </footer>
 </body>
 </html>`;

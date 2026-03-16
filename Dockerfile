@@ -68,6 +68,8 @@ RUN chown -R bot:nodejs /app
 USER bot
 
 ENV NODE_ENV=production
+ENV APP_VERSION=${VERSION}
+ENV APP_BUILD_DATE=${BUILD_DATE}
 
 EXPOSE 3000
 
