@@ -1,27 +1,85 @@
 import type { RunRecord } from '../db.js';
 import type { SettingRecord } from '../db.js';
 
+const themeScript = `<script>
+(function(){
+  var t = localStorage.getItem('theme') || 'system';
+  var d = document.documentElement;
+  if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+  else d.removeAttribute('data-theme');
+})();
+</script>`;
+
+const themeToggle = `<select id="theme-toggle" aria-label="Theme" style="width:auto;padding:0.25rem 0.5rem;font-size:0.8rem;margin:0;border-radius:4px">
+  <option value="system">Systeme</option>
+  <option value="light">Clair</option>
+  <option value="dark">Sombre</option>
+</select>
+<script>
+(function(){
+  var sel = document.getElementById('theme-toggle');
+  sel.value = localStorage.getItem('theme') || 'system';
+  sel.addEventListener('change', function(){
+    var t = sel.value;
+    localStorage.setItem('theme', t);
+    var d = document.documentElement;
+    if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t);
+    else d.removeAttribute('data-theme');
+  });
+})();
+</script>`;
+
+const themeVars = `
+    [data-theme="light"], :root:not([data-theme="dark"]) {
+      --status-success-bg: #d4edda; --status-success-fg: #155724;
+      --status-error-bg: #f8d7da; --status-error-fg: #721c24;
+      --status-running-bg: #fff3cd; --status-running-fg: #856404;
+      --status-neutral-bg: #e2e3e5; --status-neutral-fg: #383d41;
+      --log-bg: #1e1e1e; --log-fg: #d4d4d4;
+      --progress-ok: #28a745; --progress-missing: #dc3545;
+    }
+    [data-theme="dark"] {
+      --status-success-bg: #1e3a2a; --status-success-fg: #a3d9a5;
+      --status-error-bg: #3a1e1e; --status-error-fg: #d9a3a5;
+      --status-running-bg: #3a3520; --status-running-fg: #d9c8a3;
+      --status-neutral-bg: #2a2b2d; --status-neutral-fg: #b0b3b8;
+      --log-bg: #161618; --log-fg: #d4d4d4;
+      --progress-ok: #2ea44f; --progress-missing: #e5534b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --status-success-bg: #1e3a2a; --status-success-fg: #a3d9a5;
+        --status-error-bg: #3a1e1e; --status-error-fg: #d9a3a5;
+        --status-running-bg: #3a3520; --status-running-fg: #d9c8a3;
+        --status-neutral-bg: #2a2b2d; --status-neutral-fg: #b0b3b8;
+        --log-bg: #161618; --log-fg: #d4d4d4;
+        --progress-ok: #2ea44f; --progress-missing: #e5534b;
+      }
+    }`;
+
 export function layout(title: string, content: string, currentPath: string): string {
   return `<!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title} — X AI Weekly Bot</title>
+  ${themeScript}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <style>
     :root { --pico-font-size: 15px; }
+    ${themeVars}
     nav { margin-bottom: 1rem; }
     .status-badge { display: inline-block; padding: 0.15em 0.5em; border-radius: 4px; font-size: 0.85em; font-weight: 600; }
-    .status-success { background: #d4edda; color: #155724; }
-    .status-error { background: #f8d7da; color: #721c24; }
-    .status-running { background: #fff3cd; color: #856404; }
-    .status-no_news, .status-no_tweets { background: #e2e3e5; color: #383d41; }
+    .status-success { background: var(--status-success-bg); color: var(--status-success-fg); }
+    .status-error { background: var(--status-error-bg); color: var(--status-error-fg); }
+    .status-running { background: var(--status-running-bg); color: var(--status-running-fg); }
+    .status-no_news, .status-no_tweets { background: var(--status-neutral-bg); color: var(--status-neutral-fg); }
     .flash { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
-    .flash-success { background: #d4edda; color: #155724; }
-    .flash-error { background: #f8d7da; color: #721c24; }
-    pre.log { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px; overflow-x: auto; max-height: 400px; font-size: 0.8rem; }
+    .flash-success { background: var(--status-success-bg); color: var(--status-success-fg); }
+    .flash-error { background: var(--status-error-bg); color: var(--status-error-fg); }
+    pre.log { background: var(--log-bg); color: var(--log-fg); padding: 1rem; border-radius: 6px; overflow-x: auto; max-height: 400px; font-size: 0.8rem; }
     .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
     .stat-card { padding: 1rem; border-radius: 6px; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); }
     .stat-card h3 { margin: 0; font-size: 0.85rem; color: var(--pico-muted-color); }
@@ -37,6 +95,7 @@ export function layout(title: string, content: string, currentPath: string): str
       <li><a href="/"${currentPath === '/' ? ' aria-current="page"' : ''}>Dashboard</a></li>
       <li><a href="/runs"${currentPath === '/runs' ? ' aria-current="page"' : ''}>Historique</a></li>
       <li><a href="/settings"${currentPath === '/settings' ? ' aria-current="page"' : ''}>Paramètres</a></li>
+      <li>${themeToggle}</li>
     </ul>
   </nav>
   <main class="container">
@@ -240,7 +299,7 @@ export function settingsPage(
 
     <hgroup>
       <h2>Session Cookies X</h2>
-      <p>Cookies de session pour le scraping — extraits depuis votre navigateur (DevTools → Application → Cookies → x.com)</p>
+      <p>Cookies de session pour le scraping — extraits depuis votre navigateur (DevTools &gt; Application &gt; Cookies &gt; x.com)</p>
     </hgroup>
 
     ${!credentials?.hasAuth ? '<div class="flash flash-error">Il est fortement recommandé de configurer <code>ADMIN_PASSWORD</code> pour protéger l\'accès aux cookies de session.</div>' : ''}
@@ -272,31 +331,33 @@ export interface CredentialStatus {
 
 export function setupLayout(title: string, content: string): string {
   return `<!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${title} — X AI Weekly Bot</title>
+  ${themeScript}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <style>
     :root { --pico-font-size: 15px; }
+    ${themeVars}
     .setup-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
     .cred-list { list-style: none; padding: 0; }
     .cred-list li { padding: 0.6rem 0; border-bottom: 1px solid var(--pico-muted-border-color); display: flex; align-items: center; gap: 0.75rem; }
     .cred-list li:last-child { border-bottom: none; }
     .cred-status { width: 1.5rem; height: 1.5rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
-    .cred-ok { background: #d4edda; color: #155724; }
-    .cred-missing { background: #f8d7da; color: #721c24; }
+    .cred-ok { background: var(--status-success-bg); color: var(--status-success-fg); }
+    .cred-missing { background: var(--status-error-bg); color: var(--status-error-fg); }
     .cred-details { flex: 1; }
     .cred-details strong { display: block; }
     .cred-details code { font-size: 0.8rem; }
     .cred-how-to { margin-top: 0.4rem; font-size: 0.82rem; color: var(--pico-muted-color); line-height: 1.45; }
     .cred-how-to kbd { display: inline-block; padding: 0.1em 0.4em; font-size: 0.8em; background: var(--pico-muted-border-color); border-radius: 3px; font-family: inherit; }
-    pre.env-template { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; line-height: 1.5; }
+    pre.env-template { background: var(--log-bg); color: var(--log-fg); padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; line-height: 1.5; }
     .progress-bar { display: flex; gap: 4px; margin-bottom: 1.5rem; }
     .progress-segment { height: 6px; flex: 1; border-radius: 3px; }
-    .progress-ok { background: #28a745; }
-    .progress-missing { background: #dc3545; }
+    .progress-ok { background: var(--progress-ok); }
+    .progress-missing { background: var(--progress-missing); }
   </style>
 </head>
 <body>
@@ -304,7 +365,7 @@ export function setupLayout(title: string, content: string): string {
     ${content}
   </main>
   <footer class="container" style="max-width: 700px;">
-    <small>X AI Weekly Bot v${process.env.APP_VERSION || 'dev'}${process.env.APP_BUILD_DATE ? ` — Build ${process.env.APP_BUILD_DATE}` : ''}</small>
+    <small>X AI Weekly Bot v${process.env.APP_VERSION || 'dev'}${process.env.APP_BUILD_DATE ? ` — Build ${process.env.APP_BUILD_DATE}` : ''} — ${themeToggle}</small>
   </footer>
 </body>
 </html>`;
