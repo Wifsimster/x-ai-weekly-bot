@@ -14,6 +14,8 @@ import {
   getSuccessfulSummaries,
   countSuccessfulSummaries,
   getSuccessfulRunsByMonth,
+  getRunById,
+  updateNotificationStatus,
 } from './run-service.js';
 import {
   generateMonthlySummary,
@@ -33,7 +35,7 @@ import {
 } from './settings-service.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
 import { validateXCookies, detectGqlIds, DEFAULT_GQL_IDS } from './adapters/scraper-reader.js';
-import { testDiscordWebhook } from './adapters/discord-notifier.js';
+import { testDiscordWebhook, sendDiscordNotification } from './adapters/discord-notifier.js';
 import { reschedule, getCurrentSchedule } from './cron-manager.js';
 import { buildMergedConfig } from './scheduler.js';
 
@@ -452,6 +454,50 @@ export function startServer(
     app.delete('/api/discord-webhook', (c) => {
       deleteSetting('DISCORD_WEBHOOK_URL');
       return c.json({ success: true, message: 'Webhook Discord supprimé.' });
+    });
+
+    app.post('/api/runs/:id/send-discord', async (c) => {
+      const runId = Number(c.req.param('id'));
+      if (!runId || runId < 1) {
+        return c.json({ success: false, message: 'ID de run invalide.' }, 400);
+      }
+
+      const targetRun = getRunById(runId);
+      if (!targetRun) {
+        return c.json({ success: false, message: 'Run introuvable.' }, 404);
+      }
+
+      if (!targetRun.summary) {
+        return c.json({
+          success: false,
+          message: 'Ce run ne contient pas de resume a envoyer.',
+        }, 400);
+      }
+
+      const webhookUrl = getSetting('DISCORD_WEBHOOK_URL') ?? config.DISCORD_WEBHOOK_URL;
+      if (!webhookUrl) {
+        return c.json({
+          success: false,
+          message: "Aucun webhook Discord configure. Ajoutez l'URL dans les parametres.",
+        }, 400);
+      }
+
+      const result = await sendDiscordNotification(webhookUrl, targetRun.summary, runId);
+      const notifStatus = result.success ? 'sent' : 'failed';
+      updateNotificationStatus(runId, notifStatus);
+
+      if (result.success) {
+        return c.json({
+          success: true,
+          message: 'Resume envoye sur Discord avec succes.',
+          notification_status: notifStatus,
+        });
+      }
+      return c.json({
+        success: false,
+        message: `Echec de l'envoi : ${result.error}`,
+        notification_status: notifStatus,
+      });
     });
 
     app.post('/api/test-discord', async (c) => {
