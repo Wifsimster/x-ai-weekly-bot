@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { StatCard } from "@/components/stat-card";
+import { MarkdownContent } from "@/components/markdown-content";
 import { BookOpen, Calendar, TrendingUp, Loader2 } from "lucide-react";
 import type { RunRecord, MonthlySummaryRecord, AvailableMonth } from "@/types";
 
@@ -138,10 +139,11 @@ function SummaryCard({ run }: { run: RunRecord }) {
         </div>
       </CardHeader>
       <CardContent>
-        <div
-          className={`whitespace-pre-wrap text-sm leading-relaxed ${!expanded ? "line-clamp-3" : ""}`}
-        >
-          {run.summary}
+        <div className={!expanded ? "max-h-[4.5rem] overflow-hidden relative" : ""}>
+          <MarkdownContent content={run.summary ?? ""} className="text-sm" />
+          {!expanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-card to-transparent" />
+          )}
         </div>
         <Button
           variant="ghost"
@@ -294,10 +296,11 @@ function MonthlySummaryCard({ summary }: { summary: MonthlySummaryRecord }) {
         </div>
       </CardHeader>
       <CardContent>
-        <div
-          className={`whitespace-pre-wrap text-sm leading-relaxed ${!expanded ? "line-clamp-5" : ""}`}
-        >
-          {summary.summary}
+        <div className={!expanded ? "max-h-[6rem] overflow-hidden relative" : ""}>
+          <MarkdownContent content={summary.summary ?? ""} className="text-sm" />
+          {!expanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-card to-transparent" />
+          )}
         </div>
         <Button
           variant="ghost"
