@@ -8,8 +8,40 @@ import { logger } from '../logger.js';
 const BEARER_TOKEN =
   'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 
-// Feature flags required by X's GraphQL API — these may need updating when X changes them
-const GRAPHQL_FEATURES = {
+/** Default GraphQL query IDs — used as fallbacks when not overridden */
+export const DEFAULT_GQL_IDS = {
+  UserByScreenName: 'pLsOiyHJ1eFwPJlNmLp4Bg',
+  UserTweets: 'E3opETHurmVJflFsUBVuUQ',
+} as const;
+
+// Feature flags for UserByScreenName — updated to match X's current API
+const USER_FEATURES = {
+  hidden_profile_subscriptions_enabled: true,
+  profile_label_improvements_pcf_label_in_post_enabled: true,
+  responsive_web_profile_redirect_enabled: false,
+  rweb_tipjar_consumption_enabled: false,
+  verified_phone_label_enabled: false,
+  subscriptions_verification_info_is_identity_verified_enabled: true,
+  subscriptions_verification_info_verified_since_enabled: true,
+  highlights_tweets_tab_ui_enabled: true,
+  responsive_web_twitter_article_notes_tab_enabled: true,
+  subscriptions_feature_can_gift_premium: true,
+  creator_subscriptions_tweet_preview_api_enabled: true,
+  responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+  responsive_web_graphql_timeline_navigation_enabled: true,
+};
+
+const USER_FEATURES_ENCODED = encodeURIComponent(JSON.stringify(USER_FEATURES));
+
+const USER_FIELD_TOGGLES = {
+  withPayments: false,
+  withAuxiliaryUserLabels: true,
+};
+
+const USER_FIELD_TOGGLES_ENCODED = encodeURIComponent(JSON.stringify(USER_FIELD_TOGGLES));
+
+// Feature flags for timeline queries
+const TIMELINE_FEATURES = {
   rweb_tipjar_consumption_enabled: true,
   responsive_web_graphql_exclude_directive_enabled: true,
   verified_phone_label_enabled: false,
@@ -35,7 +67,7 @@ const GRAPHQL_FEATURES = {
   responsive_web_enhance_cards_enabled: false,
 };
 
-const FEATURES_ENCODED = encodeURIComponent(JSON.stringify(GRAPHQL_FEATURES));
+const TIMELINE_FEATURES_ENCODED = encodeURIComponent(JSON.stringify(TIMELINE_FEATURES));
 
 // Zod schema for validating tweet data from the GraphQL response
 const tweetLegacySchema = z.object({
@@ -67,11 +99,11 @@ export async function validateXCookies(
 
   const variables = JSON.stringify({
     screen_name: username,
-    withSafetyModeUserFields: true,
+    withGrokTranslatedBio: false,
   });
 
-  const queryId = gqlId ?? 'qW5u-DAuXpMEG0zA1F7UGQ';
-  const url = `https://x.com/i/api/graphql/${queryId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${FEATURES_ENCODED}`;
+  const queryId = gqlId ?? DEFAULT_GQL_IDS.UserByScreenName;
+  const url = `https://x.com/i/api/graphql/${queryId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${USER_FEATURES_ENCODED}&fieldToggles=${USER_FIELD_TOGGLES_ENCODED}`;
 
   try {
     const response = await fetch(url, { headers });
@@ -157,12 +189,12 @@ export function createScraperReader(config: Config): TweetReader {
   async function getUserId(username: string): Promise<string> {
     const variables = JSON.stringify({
       screen_name: username,
-      withSafetyModeUserFields: true,
+      withGrokTranslatedBio: false,
     });
 
     const queryId =
-      config.X_GQL_USER_BY_SCREEN_NAME_ID ?? 'qW5u-DAuXpMEG0zA1F7UGQ';
-    const url = `https://x.com/i/api/graphql/${queryId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${FEATURES_ENCODED}`;
+      config.X_GQL_USER_BY_SCREEN_NAME_ID ?? DEFAULT_GQL_IDS.UserByScreenName;
+    const url = `https://x.com/i/api/graphql/${queryId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${USER_FEATURES_ENCODED}&fieldToggles=${USER_FIELD_TOGGLES_ENCODED}`;
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
@@ -205,8 +237,8 @@ export function createScraperReader(config: Config): TweetReader {
       variables.cursor = cursor;
     }
 
-    const queryId = config.X_GQL_USER_TWEETS_ID ?? 'E3opETHurmVJflFsUBVuUQ';
-    const url = `https://x.com/i/api/graphql/${queryId}/UserTweets?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${FEATURES_ENCODED}`;
+    const queryId = config.X_GQL_USER_TWEETS_ID ?? DEFAULT_GQL_IDS.UserTweets;
+    const url = `https://x.com/i/api/graphql/${queryId}/UserTweets?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
@@ -295,6 +327,58 @@ export function createScraperReader(config: Config): TweetReader {
       return null;
     }
   }
+}
+
+/**
+ * Auto-detect current GraphQL query IDs from X's web app JS bundles.
+ * Fetches x.com, finds script bundles, then searches for operationName patterns.
+ */
+export async function detectGqlIds(): Promise<{
+  UserByScreenName?: string;
+  UserTweets?: string;
+}> {
+  const html = await fetch('https://x.com', {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+  }).then((r) => r.text());
+
+  // Extract JS bundle URLs from script tags
+  const scriptUrls: string[] = [];
+  const scriptRegex = /src="(https:\/\/abs\.twimg\.com\/responsive-web\/client-web[^"]+\.js)"/g;
+  let match: RegExpExecArray | null;
+  while ((match = scriptRegex.exec(html)) !== null) {
+    scriptUrls.push(match[1]);
+  }
+
+  if (scriptUrls.length === 0) {
+    throw new Error('Aucun bundle JS trouvé sur x.com — la structure de la page a peut-être changé');
+  }
+
+  const result: { UserByScreenName?: string; UserTweets?: string } = {};
+  const operations = ['UserByScreenName', 'UserTweets'] as const;
+  const idPattern = /queryId:"([^"]+)",operationName:"([^"]+)",operationType:"query"/g;
+
+  // Fetch bundles concurrently in batches, stop early once we found both
+  for (let i = 0; i < scriptUrls.length && (!result.UserByScreenName || !result.UserTweets); i += 5) {
+    const batch = scriptUrls.slice(i, i + 5);
+    const scripts = await Promise.all(
+      batch.map((url) =>
+        fetch(url).then((r) => r.text()).catch(() => ''),
+      ),
+    );
+
+    for (const js of scripts) {
+      let m: RegExpExecArray | null;
+      while ((m = idPattern.exec(js)) !== null) {
+        const [, queryId, opName] = m;
+        if (operations.includes(opName as (typeof operations)[number])) {
+          result[opName as keyof typeof result] = queryId;
+        }
+      }
+      if (result.UserByScreenName && result.UserTweets) break;
+    }
+  }
+
+  return result;
 }
 
 function getNestedValue(

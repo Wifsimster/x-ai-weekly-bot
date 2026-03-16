@@ -67,5 +67,7 @@ function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>
     ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
     ...(overrides.X_SESSION_AUTH_TOKEN && { X_SESSION_AUTH_TOKEN: overrides.X_SESSION_AUTH_TOKEN }),
     ...(overrides.X_SESSION_CSRF_TOKEN && { X_SESSION_CSRF_TOKEN: overrides.X_SESSION_CSRF_TOKEN }),
+    ...(overrides.X_GQL_USER_BY_SCREEN_NAME_ID && { X_GQL_USER_BY_SCREEN_NAME_ID: overrides.X_GQL_USER_BY_SCREEN_NAME_ID }),
+    ...(overrides.X_GQL_USER_TWEETS_ID && { X_GQL_USER_TWEETS_ID: overrides.X_GQL_USER_TWEETS_ID }),
   };
 }

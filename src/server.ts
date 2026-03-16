@@ -8,7 +8,7 @@ import { logger } from './logger.js';
 import { getRunHistory, getLastRun, isRunning, triggerRun } from './run-service.js';
 import { getSettings, setSetting, isEditableKey, isCredentialKey, getSettingsMap, getSetting, maskCredential } from './settings-service.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
-import { validateXCookies } from './adapters/scraper-reader.js';
+import { validateXCookies, detectGqlIds, DEFAULT_GQL_IDS } from './adapters/scraper-reader.js';
 
 interface MissingCredential {
   key: string;
@@ -34,6 +34,8 @@ function buildEnvDefaults(config: Config, cronSchedule: string) {
     MAX_TWEETS: String(config.MAX_TWEETS),
     DRY_RUN: String(config.DRY_RUN),
     CRON_SCHEDULE: cronSchedule,
+    X_GQL_USER_BY_SCREEN_NAME_ID: config.X_GQL_USER_BY_SCREEN_NAME_ID || DEFAULT_GQL_IDS.UserByScreenName,
+    X_GQL_USER_TWEETS_ID: config.X_GQL_USER_TWEETS_ID || DEFAULT_GQL_IDS.UserTweets,
   };
 }
 
@@ -176,6 +178,28 @@ export function startServer(
       });
     });
 
+    app.post('/api/detect-gql-ids', async (c) => {
+      try {
+        const ids = await detectGqlIds();
+        const saved: Record<string, string> = {};
+        if (ids.UserByScreenName) {
+          setSetting('X_GQL_USER_BY_SCREEN_NAME_ID', ids.UserByScreenName);
+          saved.UserByScreenName = ids.UserByScreenName;
+        }
+        if (ids.UserTweets) {
+          setSetting('X_GQL_USER_TWEETS_ID', ids.UserTweets);
+          saved.UserTweets = ids.UserTweets;
+        }
+        if (Object.keys(saved).length === 0) {
+          return c.json({ success: false, message: 'Aucun ID GraphQL trouvé dans les bundles JS de x.com.' });
+        }
+        return c.json({ success: true, message: 'IDs GraphQL détectés et sauvegardés.', ids: saved });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return c.json({ success: false, message: `Erreur de détection : ${msg}` });
+      }
+    });
+
     app.post('/api/trigger', async (c) => {
       if (isRunning()) {
         return c.json({ success: false, message: 'Un run est déjà en cours.' });
@@ -232,5 +256,7 @@ function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>
     ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
     ...(overrides.X_SESSION_AUTH_TOKEN && { X_SESSION_AUTH_TOKEN: overrides.X_SESSION_AUTH_TOKEN }),
     ...(overrides.X_SESSION_CSRF_TOKEN && { X_SESSION_CSRF_TOKEN: overrides.X_SESSION_CSRF_TOKEN }),
+    ...(overrides.X_GQL_USER_BY_SCREEN_NAME_ID && { X_GQL_USER_BY_SCREEN_NAME_ID: overrides.X_GQL_USER_BY_SCREEN_NAME_ID }),
+    ...(overrides.X_GQL_USER_TWEETS_ID && { X_GQL_USER_TWEETS_ID: overrides.X_GQL_USER_TWEETS_ID }),
   };
 }

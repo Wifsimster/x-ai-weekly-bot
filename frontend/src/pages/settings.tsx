@@ -20,6 +20,8 @@ const FIELDS: SettingField[] = [
   { key: "MAX_TWEETS", label: "Max tweets", type: "number" },
   { key: "DRY_RUN", label: "Mode test (dry run)", type: "select", options: ["false", "true"] },
   { key: "CRON_SCHEDULE", label: "Planification cron", type: "text" },
+  { key: "X_GQL_USER_BY_SCREEN_NAME_ID", label: "GraphQL ID — UserByScreenName", type: "text" },
+  { key: "X_GQL_USER_TWEETS_ID", label: "GraphQL ID — UserTweets", type: "text" },
 ];
 
 export function SettingsPage() {
@@ -27,6 +29,7 @@ export function SettingsPage() {
   const [flash, setFlash] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingCreds, setSavingCreds] = useState(false);
+  const [detecting, setDetecting] = useState(false);
 
   const handleSettingsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -136,6 +139,35 @@ export function SettingsPage() {
               {saving ? "Enregistrement..." : "Enregistrer"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="font-semibold">Detection automatique des IDs GraphQL</div>
+          <p className="text-sm text-muted-foreground">
+            Les IDs GraphQL changent quand X deploie une nouvelle version. Cliquez pour detecter les IDs actuels depuis x.com.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Button
+            disabled={detecting}
+            onClick={async () => {
+              setDetecting(true);
+              setFlash(null);
+              try {
+                const res = await fetch("/api/detect-gql-ids", { method: "POST" });
+                const data = await res.json();
+                setFlash({ type: data.success ? "success" : "error", message: data.message });
+              } catch {
+                setFlash({ type: "error", message: "Erreur lors de la detection." });
+              } finally {
+                setDetecting(false);
+              }
+            }}
+          >
+            {detecting ? "Detection en cours..." : "Detecter les IDs GraphQL"}
+          </Button>
         </CardContent>
       </Card>
 
