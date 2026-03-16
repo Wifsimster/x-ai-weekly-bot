@@ -226,6 +226,125 @@ export function settingsPage(
   `;
 }
 
+export interface CredentialStatus {
+  key: string;
+  label: string;
+  docUrl: string;
+  configured: boolean;
+}
+
+export function setupLayout(title: string, content: string): string {
+  return `<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title} — X AI Weekly Bot</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root { --pico-font-size: 15px; }
+    .setup-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .cred-list { list-style: none; padding: 0; }
+    .cred-list li { padding: 0.6rem 0; border-bottom: 1px solid var(--pico-muted-border-color); display: flex; align-items: center; gap: 0.75rem; }
+    .cred-list li:last-child { border-bottom: none; }
+    .cred-status { width: 1.5rem; height: 1.5rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+    .cred-ok { background: #d4edda; color: #155724; }
+    .cred-missing { background: #f8d7da; color: #721c24; }
+    .cred-details { flex: 1; }
+    .cred-details strong { display: block; }
+    .cred-details code { font-size: 0.8rem; }
+    pre.env-template { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; line-height: 1.5; }
+    .progress-bar { display: flex; gap: 4px; margin-bottom: 1.5rem; }
+    .progress-segment { height: 6px; flex: 1; border-radius: 3px; }
+    .progress-ok { background: #28a745; }
+    .progress-missing { background: #dc3545; }
+  </style>
+</head>
+<body>
+  <main class="container" style="max-width: 700px; margin-top: 3rem;">
+    ${content}
+  </main>
+  <footer class="container" style="max-width: 700px;">
+    <small>X AI Weekly Bot — Configuration initiale</small>
+  </footer>
+</body>
+</html>`;
+}
+
+export function setupPage(credentials: CredentialStatus[]): string {
+  const configuredCount = credentials.filter((c) => c.configured).length;
+  const totalCount = credentials.length;
+
+  const progressSegments = credentials
+    .map((c) => `<div class="progress-segment ${c.configured ? 'progress-ok' : 'progress-missing'}"></div>`)
+    .join('');
+
+  const credRows = credentials
+    .map(
+      (c) => `<li>
+        <span class="cred-status ${c.configured ? 'cred-ok' : 'cred-missing'}">${c.configured ? '&#10003;' : '&#10007;'}</span>
+        <div class="cred-details">
+          <strong>${escapeHtml(c.label)}</strong>
+          <code>${escapeHtml(c.key)}</code>
+        </div>
+        <a href="${escapeHtml(c.docUrl)}" target="_blank" rel="noopener noreferrer">
+          <small>Documentation</small>
+        </a>
+      </li>`
+    )
+    .join('');
+
+  const envTemplate = credentials
+    .filter((c) => !c.configured)
+    .map((c) => `${c.key}=your-${c.key.toLowerCase().replace(/_/g, '-')}-here`)
+    .join('\n');
+
+  return `
+    <div class="setup-icon">&#9881;</div>
+    <hgroup>
+      <h1>Configuration requise</h1>
+      <p>Le bot a besoin de quelques variables d'environnement pour fonctionner. ${configuredCount} sur ${totalCount} sont configurées.</p>
+    </hgroup>
+
+    <div class="progress-bar">
+      ${progressSegments}
+    </div>
+
+    <article>
+      <header><strong>Variables d'environnement</strong></header>
+      <ul class="cred-list">
+        ${credRows}
+      </ul>
+    </article>
+
+    ${
+      envTemplate
+        ? `<article>
+      <header><strong>Template .env</strong></header>
+      <p>Ajoutez les variables manquantes dans votre fichier <code>.env</code> ou dans votre <code>compose.yml</code> :</p>
+      <pre class="env-template">${escapeHtml(envTemplate)}</pre>
+    </article>`
+        : ''
+    }
+
+    <article>
+      <header><strong>Comment configurer ?</strong></header>
+      <ol>
+        <li>Copiez le fichier <code>.env.example</code> en <code>.env</code> et remplissez les valeurs manquantes</li>
+        <li>Ou ajoutez les variables dans la section <code>environment:</code> de votre <code>compose.yml</code></li>
+        <li>Redemarrez le conteneur : <code>docker compose down && docker compose up -d</code></li>
+      </ol>
+      <p><small>Les variables d'environnement sont lues au demarrage du conteneur. Un redemarrage est necessaire apres modification.</small></p>
+    </article>
+
+    ${
+      configuredCount === totalCount
+        ? '<a href="/" role="button">Acceder au dashboard</a>'
+        : '<button disabled>En attente de configuration...</button>'
+    }
+  `;
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
