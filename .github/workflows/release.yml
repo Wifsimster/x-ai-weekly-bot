@@ -39,7 +39,12 @@ jobs:
       should_release: ${{ steps.check.outputs.should_release }}
       bump_type: ${{ steps.check.outputs.bump_type }}
     steps:
-      - name: Analyze commit for release type
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze commits for release type
         id: check
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
@@ -52,17 +57,32 @@ jobs:
             exit 0
           fi
 
-          FIRST_LINE=$(echo "$COMMIT_MSG" | head -1)
+          # For merge commits (PRs), scan all commits in the PR
+          # For direct pushes, check the head commit message
+          BUMP="none"
 
-          if echo "$FIRST_LINE" | grep -qE "^(feat|feature)(\(.+\))?!:|^BREAKING CHANGE:"; then
+          if git log -1 --pretty=%P HEAD | grep -q ' '; then
+            # Merge commit: get all commits from the merged branch
+            MESSAGES=$(git log --first-parent --no-merges --pretty=format:"%s" $(git log -1 --pretty=%P HEAD | awk '{print $1}')..$(git log -1 --pretty=%P HEAD | awk '{print $2}'))
+          else
+            MESSAGES="$COMMIT_MSG"
+          fi
+
+          while IFS= read -r MSG; do
+            FIRST_LINE=$(echo "$MSG" | head -1)
+            if echo "$FIRST_LINE" | grep -qE "^(feat|feature)(\(.+\))?!:|^BREAKING CHANGE:"; then
+              BUMP="major"
+              break
+            elif echo "$FIRST_LINE" | grep -qE "^(feat|feature)(\(.+\))?:"; then
+              [ "$BUMP" != "major" ] && BUMP="minor"
+            elif echo "$FIRST_LINE" | grep -qE "^fix(\(.+\))?:"; then
+              [ "$BUMP" = "none" ] && BUMP="patch"
+            fi
+          done <<< "$MESSAGES"
+
+          if [ "$BUMP" != "none" ]; then
             echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "bump_type=major" >> $GITHUB_OUTPUT
-          elif echo "$FIRST_LINE" | grep -qE "^(feat|feature)(\(.+\))?:"; then
-            echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "bump_type=minor" >> $GITHUB_OUTPUT
-          elif echo "$FIRST_LINE" | grep -qE "^fix(\(.+\))?:"; then
-            echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "bump_type=patch" >> $GITHUB_OUTPUT
+            echo "bump_type=$BUMP" >> $GITHUB_OUTPUT
           else
             echo "should_release=false" >> $GITHUB_OUTPUT
           fi
