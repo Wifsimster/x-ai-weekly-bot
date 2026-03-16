@@ -4,6 +4,7 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import cron from 'node-cron';
 import { logger } from './logger.js';
 import {
   getRunHistory,
@@ -33,6 +34,8 @@ import {
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
 import { validateXCookies, detectGqlIds, DEFAULT_GQL_IDS } from './adapters/scraper-reader.js';
 import { testDiscordWebhook } from './adapters/discord-notifier.js';
+import { reschedule, getCurrentSchedule } from './cron-manager.js';
+import { buildMergedConfig } from './scheduler.js';
 
 interface MissingCredential {
   key: string;
@@ -54,11 +57,12 @@ function buildCredentialInfo(config: Config) {
 }
 
 function buildEnvDefaults(config: Config, cronSchedule: string) {
+  const activeCron = getCurrentSchedule() || getSetting('CRON_SCHEDULE') || cronSchedule;
   return {
     AI_MODEL: config.AI_MODEL,
     TWEETS_LOOKBACK_DAYS: String(config.TWEETS_LOOKBACK_DAYS),
     DRY_RUN: String(config.DRY_RUN),
-    CRON_SCHEDULE: cronSchedule,
+    CRON_SCHEDULE: activeCron,
     X_GQL_USER_BY_SCREEN_NAME_ID:
       config.X_GQL_USER_BY_SCREEN_NAME_ID || DEFAULT_GQL_IDS.UserByScreenName,
     X_GQL_HOME_TIMELINE_ID: config.X_GQL_HOME_TIMELINE_ID || DEFAULT_GQL_IDS.HomeLatestTimeline,
@@ -84,6 +88,48 @@ export function startServer(
       }),
     );
   }
+
+  // CSRF protection on state-mutating requests
+  app.use('*', async (c, next) => {
+    const method = c.req.method;
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+      return next();
+    }
+    // Allow health check without CSRF
+    if (c.req.path === '/healthz') {
+      return next();
+    }
+    const origin = c.req.header('origin');
+    const referer = c.req.header('referer');
+    // If Origin is present, it must match the request host
+    if (origin) {
+      const requestHost = c.req.header('host');
+      try {
+        const originHost = new URL(origin).host;
+        if (originHost !== requestHost) {
+          logger.warn('CSRF: Origin mismatch', { origin, host: requestHost });
+          return c.json({ success: false, message: 'Forbidden: origin mismatch' }, 403);
+        }
+      } catch {
+        return c.json({ success: false, message: 'Forbidden: invalid origin' }, 403);
+      }
+    } else if (referer) {
+      // Fallback to Referer check
+      const requestHost = c.req.header('host');
+      try {
+        const refererHost = new URL(referer).host;
+        if (refererHost !== requestHost) {
+          logger.warn('CSRF: Referer mismatch', { referer, host: requestHost });
+          return c.json({ success: false, message: 'Forbidden: referer mismatch' }, 403);
+        }
+      } catch {
+        return c.json({ success: false, message: 'Forbidden: invalid referer' }, 403);
+      }
+    }
+    // If neither Origin nor Referer is present, allow the request
+    // (CLI tools, curl, etc. don't send these headers)
+    return next();
+  });
 
   // Health check (no auth)
   app.get('/healthz', (c) => {
@@ -316,6 +362,48 @@ export function startServer(
       }
     });
 
+    // --- Cron schedule hot-reload ---
+
+    app.get('/api/cron-schedule', (c) => {
+      const dbSchedule = getSetting('CRON_SCHEDULE');
+      const active = getCurrentSchedule() || cronSchedule;
+      return c.json({
+        active,
+        saved: dbSchedule || cronSchedule,
+        envDefault: cronSchedule,
+      });
+    });
+
+    app.post('/api/cron-schedule', async (c) => {
+      const body = await c.req.json();
+      const schedule = typeof body.schedule === 'string' ? body.schedule.trim() : '';
+
+      if (!schedule) {
+        return c.json({ success: false, message: 'La planification cron est requise.' });
+      }
+
+      if (!cron.validate(schedule)) {
+        return c.json({
+          success: false,
+          message: `Expression cron invalide : "${schedule}". Format attendu : minute heure jour mois jour-semaine`,
+        });
+      }
+
+      setSetting('CRON_SCHEDULE', schedule);
+      const ok = reschedule(schedule, config, buildMergedConfig);
+
+      if (ok) {
+        return c.json({
+          success: true,
+          message: 'Planification mise a jour et appliquee immediatement.',
+        });
+      }
+      return c.json({
+        success: false,
+        message: 'Erreur lors de la replanification.',
+      });
+    });
+
     app.post('/api/trigger', async (c) => {
       if (isRunning()) {
         return c.json({ success: false, message: 'Un run est déjà en cours.' });
@@ -420,26 +508,3 @@ export function startServer(
   return app;
 }
 
-function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>): Config {
-  return {
-    ...baseConfig,
-    ...(overrides.AI_MODEL && { AI_MODEL: overrides.AI_MODEL }),
-    ...(overrides.TWEETS_LOOKBACK_DAYS && {
-      TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS),
-    }),
-    ...(overrides.DRY_RUN !== undefined && {
-      DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1',
-    }),
-    ...(overrides.X_SESSION_AUTH_TOKEN && { X_SESSION_AUTH_TOKEN: overrides.X_SESSION_AUTH_TOKEN }),
-    ...(overrides.X_SESSION_CSRF_TOKEN && { X_SESSION_CSRF_TOKEN: overrides.X_SESSION_CSRF_TOKEN }),
-    ...(overrides.X_GQL_USER_BY_SCREEN_NAME_ID && {
-      X_GQL_USER_BY_SCREEN_NAME_ID: overrides.X_GQL_USER_BY_SCREEN_NAME_ID,
-    }),
-    ...(overrides.X_GQL_HOME_TIMELINE_ID && {
-      X_GQL_HOME_TIMELINE_ID: overrides.X_GQL_HOME_TIMELINE_ID,
-    }),
-    ...(overrides.DISCORD_WEBHOOK_URL && {
-      DISCORD_WEBHOOK_URL: overrides.DISCORD_WEBHOOK_URL,
-    }),
-  };
-}

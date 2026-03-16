@@ -1,10 +1,9 @@
-import cron from 'node-cron';
 import { tryLoadConfigWithOverrides, loadBootConfig } from './config.js';
 import { logger } from './logger.js';
-import { triggerRun } from './run-service.js';
 import { getSettingsMap } from './settings-service.js';
 import { startServer } from './server.js';
 import { getDb } from './db.js';
+import { scheduleCron } from './cron-manager.js';
 import type { Config } from './config.js';
 
 // Always initialize database and boot the web server
@@ -26,39 +25,23 @@ if (configResult.success) {
   const config = configResult.config;
   const cronSchedule = config.CRON_SCHEDULE;
 
-  logger.info('X AI Weekly Bot scheduler started', {
+  logger.info('X AI Daily Bot scheduler started', {
     username: config.X_USERNAME,
     cron: cronSchedule,
     dryRun: config.DRY_RUN,
     webPort: bootConfig.WEB_PORT,
   });
 
-  // Scheduled run
-  cron.schedule(
-    cronSchedule,
-    async () => {
-      logger.info('Cron triggered — starting daily summary');
-      try {
-        const overrides = getSettingsMap();
-        const mergedConfig = buildMergedConfig(config, overrides);
-        await triggerRun(mergedConfig, 'cron');
-      } catch (err) {
-        logger.error('Daily summary failed', {
-          message: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-        });
-      }
-    },
-    { timezone: 'Europe/Paris' },
-  );
+  // Schedule initial cron via the manager (supports hot-reload)
+  scheduleCron(cronSchedule, config, buildMergedConfig);
 } else {
-  logger.warn('X AI Weekly Bot started in setup mode — missing credentials', {
+  logger.warn('X AI Daily Bot started in setup mode — missing credentials', {
     missing: configResult.missing.map((m) => m.key),
     webPort: bootConfig.WEB_PORT,
   });
 }
 
-function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>): Config {
+export function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>): Config {
   return {
     ...baseConfig,
     ...(overrides.AI_MODEL && { AI_MODEL: overrides.AI_MODEL }),

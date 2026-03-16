@@ -1,0 +1,133 @@
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { CardFlash, type Flash } from './shared';
+
+interface GraphqlCardProps {
+  envDefaults: Record<string, string>;
+  onSaved: () => void;
+}
+
+export function GraphqlCard({ envDefaults, onSaved }: GraphqlCardProps) {
+  const [flash, setFlash] = useState<Flash>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+
+  const handleDetect = async () => {
+    setDetecting(true);
+    setFlash(null);
+    try {
+      const res = await fetch('/api/detect-gql-ids', { method: 'POST' });
+      const data = await res.json();
+      setFlash({ type: data.success ? 'success' : 'error', message: data.message });
+      if (data.success) onSaved();
+    } catch {
+      setFlash({ type: 'error', message: 'Erreur lors de la detection.' });
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+    setFlash(null);
+    const formData = new FormData(e.currentTarget);
+    const body: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      body[key] = value as string;
+    }
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      setFlash({ type: data.success ? 'success' : 'error', message: data.message });
+      if (data.success) {
+        onSaved();
+        setShowManual(false);
+      }
+    } catch {
+      setFlash({ type: 'error', message: 'Erreur lors de la sauvegarde.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="font-semibold">IDs GraphQL X</div>
+        <p className="text-sm text-muted-foreground">
+          Les IDs GraphQL changent quand X deploie une nouvelle version. Utilisez la detection
+          automatique ou modifiez-les manuellement si necessaire.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <CardFlash flash={flash} />
+
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-muted-foreground font-mono">UserByScreenName</p>
+            <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
+              {envDefaults['X_GQL_USER_BY_SCREEN_NAME_ID'] || 'Non detecte'}
+            </code>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-mono">HomeLatestTimeline</p>
+            <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
+              {envDefaults['X_GQL_HOME_TIMELINE_ID'] || 'Non detecte'}
+            </code>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={handleDetect} disabled={detecting}>
+            {detecting ? 'Detection en cours...' : 'Detecter les IDs GraphQL'}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowManual(!showManual)}
+          >
+            {showManual ? 'Masquer' : 'Modifier manuellement'}
+          </Button>
+        </div>
+
+        {showManual && (
+          <form onSubmit={handleSave} className="space-y-4 border-t pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="gql_user">UserByScreenName ID</Label>
+              <Input
+                id="gql_user"
+                name="X_GQL_USER_BY_SCREEN_NAME_ID"
+                type="text"
+                defaultValue={envDefaults['X_GQL_USER_BY_SCREEN_NAME_ID'] || ''}
+                placeholder="ex: qW5u-DAuXpMEG0zA1F7UGQ"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gql_timeline">HomeLatestTimeline ID</Label>
+              <Input
+                id="gql_timeline"
+                name="X_GQL_HOME_TIMELINE_ID"
+                type="text"
+                defaultValue={envDefaults['X_GQL_HOME_TIMELINE_ID'] || ''}
+                placeholder="ex: ulQKqowrFU94KfUAZqgGvg"
+              />
+            </div>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Enregistrement...' : 'Sauvegarder les IDs'}
+            </Button>
+          </form>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
