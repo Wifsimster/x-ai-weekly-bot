@@ -112,7 +112,7 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Paramètres</h1>
         <p className="text-muted-foreground">
           Configuration du bot — les valeurs personnalisées prennent le pas sur les variables
           d'environnement
@@ -274,7 +274,7 @@ export function SettingsPage() {
                 )}
               </p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               <Button type="submit" disabled={savingCreds}>
                 {savingCreds ? 'Validation...' : 'Valider et sauvegarder'}
               </Button>

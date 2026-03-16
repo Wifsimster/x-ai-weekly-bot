@@ -24,12 +24,12 @@ export function SummariesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Syntheses</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Syntheses</h1>
           <p className="text-muted-foreground">Historique des resumes IA hebdomadaires et mensuels</p>
         </div>
-        <div className="flex gap-1 rounded-lg border p-1">
+        <div className="flex gap-1 rounded-lg border p-1 self-start">
           <Button
             variant={view === "weekly" ? "default" : "ghost"}
             size="sm"
@@ -126,10 +126,10 @@ function SummaryCard({ run }: { run: RunRecord }) {
   return (
     <Card className="border-l-4 border-l-primary/20">
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <Calendar className="h-4 w-4 text-primary" />
-            <span className="font-medium">{formatDate(run.started_at)}</span>
+            <span className="font-medium text-sm sm:text-base">{formatDate(run.started_at)}</span>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{run.tweets_fetched} tweets</Badge>
@@ -280,10 +280,10 @@ function MonthlySummaryCard({ summary }: { summary: MonthlySummaryRecord }) {
   return (
     <Card className="border-l-4 border-l-primary/40">
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <TrendingUp className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-lg">
+            <span className="font-semibold text-base sm:text-lg">
               {MONTH_NAMES[summary.month - 1]} {summary.year}
             </span>
           </div>
