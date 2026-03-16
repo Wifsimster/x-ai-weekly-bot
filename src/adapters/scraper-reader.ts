@@ -11,7 +11,7 @@ const BEARER_TOKEN =
 /** Default GraphQL query IDs — used as fallbacks when not overridden */
 export const DEFAULT_GQL_IDS = {
   UserByScreenName: 'pLsOiyHJ1eFwPJlNmLp4Bg',
-  UserTweets: 'E3opETHurmVJflFsUBVuUQ',
+  HomeLatestTimeline: 'ulQKqowrFU94KfUAZqgGvg',
 } as const;
 
 // Feature flags for UserByScreenName — updated to match X's current API
@@ -39,6 +39,29 @@ const USER_FIELD_TOGGLES = {
 };
 
 const USER_FIELD_TOGGLES_ENCODED = encodeURIComponent(JSON.stringify(USER_FIELD_TOGGLES));
+
+/** Build browser-like headers required by X's API */
+function browserHeaders(authToken: string, csrfToken: string): Record<string, string> {
+  return {
+    'accept': '*/*',
+    'accept-language': 'en-US,en;q=0.9',
+    authorization: `Bearer ${BEARER_TOKEN}`,
+    'content-type': 'application/json',
+    cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
+    'referer': 'https://x.com/',
+    'sec-ch-ua': '"Chromium";v="131", "Not_A Brand";v="24"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'empty',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-site': 'same-origin',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'x-csrf-token': csrfToken,
+    'x-twitter-active-user': 'yes',
+    'x-twitter-auth-type': 'OAuth2Session',
+    'x-twitter-client-language': 'en',
+  };
+}
 
 // Feature flags for timeline queries
 const TIMELINE_FEATURES = {
@@ -89,12 +112,7 @@ export async function validateXCookies(
   gqlId?: string,
 ): Promise<{ valid: boolean; error?: string }> {
   const headers: Record<string, string> = {
-    authorization: `Bearer ${BEARER_TOKEN}`,
-    cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
-    'x-csrf-token': csrfToken,
-    'x-twitter-active-user': 'yes',
-    'x-twitter-auth-type': 'OAuth2Session',
-    'x-twitter-client-language': 'en',
+    ...browserHeaders(authToken, csrfToken),
   };
 
   const variables = JSON.stringify({
@@ -125,7 +143,7 @@ export async function validateXCookies(
 }
 
 export interface GqlIdPersister {
-  save(key: 'X_GQL_USER_BY_SCREEN_NAME_ID' | 'X_GQL_USER_TWEETS_ID', value: string): void;
+  save(key: 'X_GQL_USER_BY_SCREEN_NAME_ID' | 'X_GQL_HOME_TIMELINE_ID', value: string): void;
 }
 
 export function createScraperReader(config: Config, persister?: GqlIdPersister): TweetReader {
@@ -139,23 +157,16 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
   }
 
   const headers: Record<string, string> = {
-    authorization: `Bearer ${BEARER_TOKEN}`,
-    cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
-    'x-csrf-token': csrfToken,
-    'x-twitter-active-user': 'yes',
-    'x-twitter-auth-type': 'OAuth2Session',
-    'x-twitter-client-language': 'en',
+    ...browserHeaders(authToken, csrfToken),
   };
 
   // Mutable IDs — updated in-place when auto-detection kicks in
   let userByScreenNameId = config.X_GQL_USER_BY_SCREEN_NAME_ID ?? DEFAULT_GQL_IDS.UserByScreenName;
-  let userTweetsId = config.X_GQL_USER_TWEETS_ID ?? DEFAULT_GQL_IDS.UserTweets;
+  let homeTimelineId = config.X_GQL_HOME_TIMELINE_ID ?? DEFAULT_GQL_IDS.HomeLatestTimeline;
 
   return { fetchRecentTweets };
 
   async function fetchRecentTweets(): Promise<Tweet[]> {
-    const userId = await getUserId(config.X_USERNAME);
-
     const startTime = new Date();
     startTime.setDate(startTime.getDate() - config.TWEETS_LOOKBACK_DAYS);
 
@@ -163,7 +174,7 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
     let cursor: string | undefined;
 
     while (tweets.length < config.MAX_TWEETS) {
-      const { entries, nextCursor } = await fetchTimelinePage(userId, cursor);
+      const { entries, nextCursor } = await fetchHomeTimelinePage(cursor);
 
       if (entries.length === 0) break;
 
@@ -172,9 +183,8 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
         if (!tweet) continue;
 
         if (new Date(tweet.createdAt) < startTime) {
-          logger.info('Fetched tweets via scraper', {
+          logger.info('Fetched tweets from home timeline', {
             count: tweets.length,
-            userId,
           });
           return tweets;
         }
@@ -187,9 +197,8 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
       cursor = nextCursor;
     }
 
-    logger.info('Fetched tweets via scraper', {
+    logger.info('Fetched tweets from home timeline', {
       count: tweets.length,
-      userId,
     });
     return tweets;
   }
@@ -204,13 +213,13 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
         persister?.save('X_GQL_USER_BY_SCREEN_NAME_ID', ids.UserByScreenName);
         updated = true;
       }
-      if (ids.UserTweets && ids.UserTweets !== userTweetsId) {
-        userTweetsId = ids.UserTweets;
-        persister?.save('X_GQL_USER_TWEETS_ID', ids.UserTweets);
+      if (ids.HomeLatestTimeline && ids.HomeLatestTimeline !== homeTimelineId) {
+        homeTimelineId = ids.HomeLatestTimeline;
+        persister?.save('X_GQL_HOME_TIMELINE_ID', ids.HomeLatestTimeline);
         updated = true;
       }
       if (updated) {
-        logger.info('GraphQL IDs updated', { UserByScreenName: userByScreenNameId, UserTweets: userTweetsId });
+        logger.info('GraphQL IDs updated', { UserByScreenName: userByScreenNameId, HomeLatestTimeline: homeTimelineId });
       } else {
         logger.info('GraphQL IDs are already up to date');
       }
@@ -221,79 +230,21 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
     }
   }
 
-  async function getUserId(username: string): Promise<string> {
-    const result = await tryGetUserId(username);
-    if (result.ok) return result.userId;
-
-    // On 404, try auto-detecting new GQL IDs and retry once
-    if (result.status === 404) {
-      const updated = await refreshGqlIds();
-      if (updated) {
-        const retry = await tryGetUserId(username);
-        if (retry.ok) return retry.userId;
-        throw new Error(retry.error);
-      }
-    }
-
-    throw new Error(result.error);
-  }
-
-  async function tryGetUserId(username: string): Promise<
-    { ok: true; userId: string } | { ok: false; status: number; error: string }
-  > {
-    const variables = JSON.stringify({
-      screen_name: username,
-      withGrokTranslatedBio: false,
-    });
-
-    const url = `https://x.com/i/api/graphql/${userByScreenNameId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${USER_FEATURES_ENCODED}&fieldToggles=${USER_FIELD_TOGGLES_ENCODED}`;
-
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      return {
-        ok: false,
-        status: response.status,
-        error: `Scraper: failed to fetch user @${username}: ${response.status} ${response.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`,
-      };
-    }
-
-    const json = (await response.json()) as Record<string, unknown>;
-    const userId = getNestedValue(json, [
-      'data',
-      'user',
-      'result',
-      'rest_id',
-    ]);
-    if (typeof userId !== 'string') {
-      return {
-        ok: false,
-        status: 0,
-        error: `Scraper: user @${username} not found or response structure changed`,
-      };
-    }
-
-    return { ok: true, userId };
-  }
-
-  async function fetchTimelinePage(
-    userId: string,
+  async function fetchHomeTimelinePage(
     cursor?: string,
   ): Promise<{ entries: unknown[]; nextCursor: string | undefined }> {
     const variables: Record<string, unknown> = {
-      userId,
       count: Math.min(config.MAX_TWEETS, 40),
       includePromotedContent: false,
-      withQuickPromoteEligibilityTweetFields: true,
-      withVoice: true,
-      withV2Timeline: true,
+      latestControlAvailable: true,
+      requestContext: cursor ? 'scroll' : 'launch',
     };
 
     if (cursor) {
       variables.cursor = cursor;
     }
 
-    const url = `https://x.com/i/api/graphql/${userTweetsId}/UserTweets?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
+    const url = `https://x.com/i/api/graphql/${homeTimelineId}/HomeLatestTimeline?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
@@ -301,33 +252,31 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
       if (response.status === 404) {
         const updated = await refreshGqlIds();
         if (updated) {
-          const retryUrl = `https://x.com/i/api/graphql/${userTweetsId}/UserTweets?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
+          const retryUrl = `https://x.com/i/api/graphql/${homeTimelineId}/HomeLatestTimeline?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
           const retryResponse = await fetch(retryUrl, { headers });
           if (retryResponse.ok) {
             const retryJson = (await retryResponse.json()) as Record<string, unknown>;
-            return parseTimelineResponse(retryJson);
+            return parseHomeTimelineResponse(retryJson);
           }
         }
       }
       const body = await response.text().catch(() => '');
       throw new Error(
-        `Scraper: failed to fetch timeline: ${response.status} ${response.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`,
+        `Scraper: failed to fetch home timeline: ${response.status} ${response.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`,
       );
     }
 
     const json = (await response.json()) as Record<string, unknown>;
-    return parseTimelineResponse(json);
+    return parseHomeTimelineResponse(json);
   }
 
-  function parseTimelineResponse(json: Record<string, unknown>): { entries: unknown[]; nextCursor: string | undefined } {
-    const instructions = (getNestedValue(json, [
+  function parseHomeTimelineResponse(json: Record<string, unknown>): { entries: unknown[]; nextCursor: string | undefined } {
+    const instructions = ((getNestedValue(json, [
       'data',
-      'user',
-      'result',
-      'timeline_v2',
-      'timeline',
+      'home',
+      'home_timeline_urt',
       'instructions',
-    ]) ?? []) as Array<Record<string, unknown>>;
+    ])) ?? []) as Array<Record<string, unknown>>;
 
     const entries: unknown[] = [];
     let nextCursor: string | undefined;
@@ -380,8 +329,26 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
         return null;
       }
 
-      // Skip retweets
-      if (parsed.data.retweeted_status_result) return null;
+      // For retweets, use the original tweet text
+      if (parsed.data.retweeted_status_result) {
+        const rtResult = parsed.data.retweeted_status_result as Record<string, unknown>;
+        const rtLegacy = getNestedValue(rtResult, ['result', 'legacy']) as Record<string, unknown> | undefined;
+        if (rtLegacy) {
+          const rtParsed = tweetLegacySchema.safeParse(rtLegacy);
+          if (rtParsed.success) {
+            const rtUrls = rtParsed.data.entities.urls
+              .map((u) => u.expanded_url)
+              .filter((url): url is string => !!url && !isXUrl(url));
+            return {
+              id: rtParsed.data.id_str,
+              text: rtParsed.data.full_text,
+              createdAt: new Date(parsed.data.created_at).toISOString(),
+              urls: rtUrls,
+            };
+          }
+        }
+        return null;
+      }
 
       const urls = parsed.data.entities.urls
         .map((u) => u.expanded_url)
@@ -405,7 +372,7 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
  */
 export async function detectGqlIds(): Promise<{
   UserByScreenName?: string;
-  UserTweets?: string;
+  HomeLatestTimeline?: string;
 }> {
   const html = await fetch('https://x.com', {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
@@ -423,12 +390,12 @@ export async function detectGqlIds(): Promise<{
     throw new Error('Aucun bundle JS trouvé sur x.com — la structure de la page a peut-être changé');
   }
 
-  const result: { UserByScreenName?: string; UserTweets?: string } = {};
-  const operations = ['UserByScreenName', 'UserTweets'] as const;
+  const result: { UserByScreenName?: string; HomeLatestTimeline?: string } = {};
+  const operations = ['UserByScreenName', 'HomeLatestTimeline'] as const;
   const idPattern = /queryId:"([^"]+)",operationName:"([^"]+)",operationType:"query"/g;
 
   // Fetch bundles concurrently in batches, stop early once we found both
-  for (let i = 0; i < scriptUrls.length && (!result.UserByScreenName || !result.UserTweets); i += 5) {
+  for (let i = 0; i < scriptUrls.length && (!result.UserByScreenName || !result.HomeLatestTimeline); i += 5) {
     const batch = scriptUrls.slice(i, i + 5);
     const scripts = await Promise.all(
       batch.map((url) =>
@@ -444,7 +411,7 @@ export async function detectGqlIds(): Promise<{
           result[opName as keyof typeof result] = queryId;
         }
       }
-      if (result.UserByScreenName && result.UserTweets) break;
+      if (result.UserByScreenName && result.HomeLatestTimeline) break;
     }
   }
 

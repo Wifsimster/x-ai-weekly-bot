@@ -9,7 +9,7 @@ const configSchema = z.object({
 
   // Optional: override GraphQL operation IDs when X changes them
   X_GQL_USER_BY_SCREEN_NAME_ID: z.string().optional(),
-  X_GQL_USER_TWEETS_ID: z.string().optional(),
+  X_GQL_HOME_TIMELINE_ID: z.string().optional(),
 
   GITHUB_TOKEN: z.string().min(1),
   AI_MODEL: z.string().default('openai/gpt-4.1'),

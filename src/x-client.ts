@@ -8,8 +8,8 @@ export type { Tweet } from './ports.js';
 export function createXClient(config: Config): TweetReader {
   return createScraperReader(config, {
     save(key, value) {
-      if (isEditableKey(key)) {
-        setSetting(key, value);
+      if (isEditableKey(key as string)) {
+        setSetting(key as 'X_GQL_USER_BY_SCREEN_NAME_ID' | 'X_GQL_HOME_TIMELINE_ID', value);
       }
     },
   });

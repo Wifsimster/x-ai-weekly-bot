@@ -35,7 +35,7 @@ function buildEnvDefaults(config: Config, cronSchedule: string) {
     DRY_RUN: String(config.DRY_RUN),
     CRON_SCHEDULE: cronSchedule,
     X_GQL_USER_BY_SCREEN_NAME_ID: config.X_GQL_USER_BY_SCREEN_NAME_ID || DEFAULT_GQL_IDS.UserByScreenName,
-    X_GQL_USER_TWEETS_ID: config.X_GQL_USER_TWEETS_ID || DEFAULT_GQL_IDS.UserTweets,
+    X_GQL_HOME_TIMELINE_ID: config.X_GQL_HOME_TIMELINE_ID || DEFAULT_GQL_IDS.HomeLatestTimeline,
   };
 }
 
@@ -193,9 +193,9 @@ export function startServer(
           setSetting('X_GQL_USER_BY_SCREEN_NAME_ID', ids.UserByScreenName);
           saved.UserByScreenName = ids.UserByScreenName;
         }
-        if (ids.UserTweets) {
-          setSetting('X_GQL_USER_TWEETS_ID', ids.UserTweets);
-          saved.UserTweets = ids.UserTweets;
+        if (ids.HomeLatestTimeline) {
+          setSetting('X_GQL_HOME_TIMELINE_ID', ids.HomeLatestTimeline);
+          saved.HomeLatestTimeline = ids.HomeLatestTimeline;
         }
         if (Object.keys(saved).length === 0) {
           return c.json({ success: false, message: 'Aucun ID GraphQL trouvé dans les bundles JS de x.com.' });
@@ -264,6 +264,6 @@ function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>
     ...(overrides.X_SESSION_AUTH_TOKEN && { X_SESSION_AUTH_TOKEN: overrides.X_SESSION_AUTH_TOKEN }),
     ...(overrides.X_SESSION_CSRF_TOKEN && { X_SESSION_CSRF_TOKEN: overrides.X_SESSION_CSRF_TOKEN }),
     ...(overrides.X_GQL_USER_BY_SCREEN_NAME_ID && { X_GQL_USER_BY_SCREEN_NAME_ID: overrides.X_GQL_USER_BY_SCREEN_NAME_ID }),
-    ...(overrides.X_GQL_USER_TWEETS_ID && { X_GQL_USER_TWEETS_ID: overrides.X_GQL_USER_TWEETS_ID }),
+    ...(overrides.X_GQL_HOME_TIMELINE_ID && { X_GQL_HOME_TIMELINE_ID: overrides.X_GQL_HOME_TIMELINE_ID }),
   };
 }

@@ -24,7 +24,7 @@ const FIELDS: SettingField[] = [
   { key: "DRY_RUN", label: "Mode test (dry run)", type: "select", options: ["false", "true"] },
   { key: "CRON_SCHEDULE", label: "Planification cron", type: "text" },
   { key: "X_GQL_USER_BY_SCREEN_NAME_ID", label: "GraphQL ID — UserByScreenName", type: "text" },
-  { key: "X_GQL_USER_TWEETS_ID", label: "GraphQL ID — UserTweets", type: "text" },
+  { key: "X_GQL_HOME_TIMELINE_ID", label: "GraphQL ID — HomeLatestTimeline", type: "text" },
 ];
 
 export function SettingsPage() {
