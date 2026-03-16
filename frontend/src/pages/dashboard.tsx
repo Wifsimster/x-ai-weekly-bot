@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { useApi } from "@/hooks/use-api";
-import { StatusBadge } from "@/components/status-badge";
-import { StatCard } from "@/components/stat-card";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Activity, Clock, Zap } from "lucide-react";
+import { useState } from 'react';
+import { useApi } from '@/hooks/use-api';
+import { StatusBadge } from '@/components/status-badge';
+import { StatCard } from '@/components/stat-card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Activity, Clock, Zap } from 'lucide-react';
+import { humanizeCron } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -17,24 +18,27 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
   AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
-import type { StatusResponse } from "@/types";
+} from '@/components/ui/alert-dialog';
+import type { StatusResponse } from '@/types';
 
 export function DashboardPage() {
-  const { data: status, loading, refetch } = useApi<StatusResponse>("/api/status");
+  const { data: status, loading, refetch } = useApi<StatusResponse>('/api/status');
   const [triggering, setTriggering] = useState(false);
-  const [triggerMessage, setTriggerMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [triggerMessage, setTriggerMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   const handleTrigger = async () => {
     setTriggering(true);
     setTriggerMessage(null);
     try {
-      const res = await fetch("/api/trigger", { method: "POST" });
+      const res = await fetch('/api/trigger', { method: 'POST' });
       const data = await res.json();
-      setTriggerMessage({ type: data.success ? "success" : "error", text: data.message });
+      setTriggerMessage({ type: data.success ? 'success' : 'error', text: data.message });
       setTimeout(() => refetch(), 1000);
     } catch {
-      setTriggerMessage({ type: "error", text: "Erreur lors du déclenchement du run." });
+      setTriggerMessage({ type: 'error', text: 'Erreur lors du déclenchement du run.' });
     } finally {
       setTriggering(false);
     }
@@ -60,10 +64,10 @@ export function DashboardPage() {
 
   const { lastRun, cronSchedule, running, totalRuns } = status;
   const cookiesExpired =
-    lastRun?.error_message?.includes("401") ||
-    lastRun?.error_message?.includes("403") ||
-    lastRun?.error_message?.includes("404") ||
-    lastRun?.error_message?.includes("Session cookies") ||
+    lastRun?.error_message?.includes('401') ||
+    lastRun?.error_message?.includes('403') ||
+    lastRun?.error_message?.includes('404') ||
+    lastRun?.error_message?.includes('Session cookies') ||
     false;
 
   return (
@@ -77,7 +81,7 @@ export function DashboardPage() {
         <Alert variant="destructive">
           <AlertTitle>Session cookies expirés</AlertTitle>
           <AlertDescription>
-            Vos cookies de session X semblent avoir expiré.{" "}
+            Vos cookies de session X semblent avoir expiré.{' '}
             <a href="/settings" className="underline font-medium">
               Mettez-les à jour dans Paramètres
             </a>
@@ -87,12 +91,18 @@ export function DashboardPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Total runs" icon={Activity}>{totalRuns}</StatCard>
+        <StatCard title="Total runs" icon={Activity}>
+          {totalRuns}
+        </StatCard>
         <StatCard title="Planification" icon={Clock}>
-          <span className="text-base font-mono">{cronSchedule}</span>
+          <span className="text-base">{humanizeCron(cronSchedule)}</span>
         </StatCard>
         <StatCard title="Statut actuel" icon={Zap}>
-          {running ? <StatusBadge status="running" /> : <span className="text-muted-foreground text-base">Inactif</span>}
+          {running ? (
+            <StatusBadge status="running" />
+          ) : (
+            <span className="text-muted-foreground text-base">Inactif</span>
+          )}
         </StatCard>
       </div>
 
@@ -119,7 +129,7 @@ export function DashboardPage() {
 
             {lastRun.summary && (
               <div className="rounded-lg border border-l-4 border-l-primary/30 p-4">
-                <p className="font-semibold mb-2">Résumé IA</p>
+                <p className="font-semibold mb-2">Synthèse de la veille</p>
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">{lastRun.summary}</div>
               </div>
             )}
@@ -127,7 +137,9 @@ export function DashboardPage() {
             {lastRun.error_message && (
               <details open>
                 <summary className="cursor-pointer font-medium text-destructive">Erreur</summary>
-                <pre className="mt-2 rounded-lg bg-muted p-4 text-xs overflow-x-auto max-h-96">{lastRun.error_message}</pre>
+                <pre className="mt-2 rounded-lg bg-muted p-4 text-xs overflow-x-auto max-h-96">
+                  {lastRun.error_message}
+                </pre>
               </details>
             )}
           </CardContent>
@@ -136,12 +148,14 @@ export function DashboardPage() {
 
       {!lastRun && (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">Aucun run enregistré.</CardContent>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Aucun run enregistré.
+          </CardContent>
         </Card>
       )}
 
       {triggerMessage && (
-        <Alert variant={triggerMessage.type === "success" ? "success" : "destructive"}>
+        <Alert variant={triggerMessage.type === 'success' ? 'success' : 'destructive'}>
           <AlertDescription>{triggerMessage.text}</AlertDescription>
         </Alert>
       )}
@@ -149,14 +163,15 @@ export function DashboardPage() {
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button disabled={running || triggering} className="w-full sm:w-auto">
-            {running || triggering ? "Run en cours..." : "Lancer un run maintenant"}
+            {running || triggering ? 'Run en cours...' : 'Lancer un run maintenant'}
           </Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Lancer un run maintenant ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action va déclencher un scraping de votre timeline X et générer un résumé IA des actualités.
+              Cette action va déclencher un scraping de votre timeline X et générer un résumé IA des
+              actualités.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
