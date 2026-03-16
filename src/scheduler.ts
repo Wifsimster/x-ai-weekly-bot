@@ -76,5 +76,8 @@ function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>
     ...(overrides.X_GQL_HOME_TIMELINE_ID && {
       X_GQL_HOME_TIMELINE_ID: overrides.X_GQL_HOME_TIMELINE_ID,
     }),
+    ...(overrides.DISCORD_WEBHOOK_URL && {
+      DISCORD_WEBHOOK_URL: overrides.DISCORD_WEBHOOK_URL,
+    }),
   };
 }

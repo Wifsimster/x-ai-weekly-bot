@@ -2,13 +2,14 @@ export interface RunRecord {
   id: number;
   started_at: string;
   finished_at: string | null;
-  status: "running" | "success" | "no_news" | "no_tweets" | "error";
-  trigger_type: "cron" | "manual";
+  status: 'running' | 'success' | 'no_news' | 'no_tweets' | 'error';
+  trigger_type: 'cron' | 'manual';
   tweets_fetched: number;
   tweets_posted: number;
   thread_ids: string | null;
   summary: string | null;
   error_message: string | null;
+  notification_status: 'pending' | 'sent' | 'failed' | 'skipped' | null;
 }
 
 export interface SettingRecord {
@@ -30,6 +31,7 @@ export interface ConfigResponse {
   credentialInfo: {
     authTokenMasked: string;
     csrfTokenMasked: string;
+    discordWebhookMasked: string;
     hasAuth: boolean;
   };
 }

@@ -8,7 +8,11 @@ const EDITABLE_KEYS = [
   'X_GQL_USER_BY_SCREEN_NAME_ID',
   'X_GQL_HOME_TIMELINE_ID',
 ] as const;
-const CREDENTIAL_KEYS = ['X_SESSION_AUTH_TOKEN', 'X_SESSION_CSRF_TOKEN'] as const;
+const CREDENTIAL_KEYS = [
+  'X_SESSION_AUTH_TOKEN',
+  'X_SESSION_CSRF_TOKEN',
+  'DISCORD_WEBHOOK_URL',
+] as const;
 
 export type EditableKey = (typeof EDITABLE_KEYS)[number];
 export type CredentialKey = (typeof CREDENTIAL_KEYS)[number];

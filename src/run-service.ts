@@ -2,6 +2,8 @@ import type { Config } from './config.js';
 import { getDb, type RunRecord } from './db.js';
 import { logger } from './logger.js';
 import { run } from './index.js';
+import { sendDiscordNotification } from './adapters/discord-notifier.js';
+import { getSetting } from './settings-service.js';
 
 let running = false;
 
@@ -9,14 +11,17 @@ export function isRunning(): boolean {
   return running;
 }
 
-export async function triggerRun(config: Config, trigger: 'cron' | 'manual' = 'manual'): Promise<RunRecord> {
+export async function triggerRun(
+  config: Config,
+  trigger: 'cron' | 'manual' = 'manual',
+): Promise<RunRecord> {
   if (running) {
     throw new Error('A run is already in progress');
   }
 
   const db = getDb();
   const insert = db.prepare(
-    `INSERT INTO runs (started_at, status, trigger_type) VALUES (datetime('now'), 'running', ?)`
+    `INSERT INTO runs (started_at, status, trigger_type) VALUES (datetime('now'), 'running', ?)`,
   );
   const { lastInsertRowid } = insert.run(trigger);
   const runId = Number(lastInsertRowid);
@@ -28,17 +33,48 @@ export async function triggerRun(config: Config, trigger: 'cron' | 'manual' = 'm
 
     // Determine status based on what happened
     const lastRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
-    const status = lastRun.summary ? 'success' : lastRun.tweets_fetched > 0 ? 'no_news' : 'no_tweets';
+    const status = lastRun.summary
+      ? 'success'
+      : lastRun.tweets_fetched > 0
+        ? 'no_news'
+        : 'no_tweets';
 
-    db.prepare(
-      `UPDATE runs SET finished_at = datetime('now'), status = ? WHERE id = ?`
-    ).run(status, runId);
+    db.prepare(`UPDATE runs SET finished_at = datetime('now'), status = ? WHERE id = ?`).run(
+      status,
+      runId,
+    );
 
-    return db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
+    // Send Discord notification for successful runs with a summary
+    const finalRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
+    if (status === 'success' && finalRun.summary) {
+      const webhookUrl = getSetting('DISCORD_WEBHOOK_URL') ?? config.DISCORD_WEBHOOK_URL;
+      if (webhookUrl) {
+        // Fire-and-forget — don't block the run result
+        sendDiscordNotification(webhookUrl, finalRun.summary, runId)
+          .then((result) => {
+            const notifStatus = result.success ? 'sent' : 'failed';
+            db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run(
+              notifStatus,
+              runId,
+            );
+          })
+          .catch((notifErr) => {
+            logger.error('Discord notification unexpected error', {
+              runId,
+              error: String(notifErr),
+            });
+            db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run('failed', runId);
+          });
+      } else {
+        db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run('skipped', runId);
+      }
+    }
+
+    return finalRun;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     db.prepare(
-      `UPDATE runs SET finished_at = datetime('now'), status = 'error', error_message = ? WHERE id = ?`
+      `UPDATE runs SET finished_at = datetime('now'), status = 'error', error_message = ? WHERE id = ?`,
     ).run(message, runId);
 
     logger.error('Run failed', { runId, error: message });
@@ -58,7 +94,10 @@ export function getLastRun(): RunRecord | undefined {
   return db.prepare('SELECT * FROM runs ORDER BY id DESC LIMIT 1').get() as RunRecord | undefined;
 }
 
-export function updateRunStats(runId: number, updates: Partial<Pick<RunRecord, 'tweets_fetched' | 'tweets_posted' | 'thread_ids' | 'summary'>>) {
+export function updateRunStats(
+  runId: number,
+  updates: Partial<Pick<RunRecord, 'tweets_fetched' | 'tweets_posted' | 'thread_ids' | 'summary'>>,
+) {
   const db = getDb();
   const sets: string[] = [];
   const values: unknown[] = [];
@@ -89,22 +128,26 @@ export function updateRunStats(runId: number, updates: Partial<Pick<RunRecord, '
 export function getCurrentRunId(): number | undefined {
   if (!running) return undefined;
   const db = getDb();
-  const row = db.prepare("SELECT id FROM runs WHERE status = 'running' ORDER BY id DESC LIMIT 1").get() as { id: number } | undefined;
+  const row = db
+    .prepare("SELECT id FROM runs WHERE status = 'running' ORDER BY id DESC LIMIT 1")
+    .get() as { id: number } | undefined;
   return row?.id;
 }
 
 export function getSuccessfulSummaries(limit = 20, offset = 0): RunRecord[] {
   const db = getDb();
-  return db.prepare(
-    `SELECT * FROM runs WHERE status = 'success' AND summary IS NOT NULL ORDER BY started_at DESC LIMIT ? OFFSET ?`
-  ).all(limit, offset) as RunRecord[];
+  return db
+    .prepare(
+      `SELECT * FROM runs WHERE status = 'success' AND summary IS NOT NULL ORDER BY started_at DESC LIMIT ? OFFSET ?`,
+    )
+    .all(limit, offset) as RunRecord[];
 }
 
 export function countSuccessfulSummaries(): number {
   const db = getDb();
-  const row = db.prepare(
-    `SELECT COUNT(*) as count FROM runs WHERE status = 'success' AND summary IS NOT NULL`
-  ).get() as { count: number };
+  const row = db
+    .prepare(`SELECT COUNT(*) as count FROM runs WHERE status = 'success' AND summary IS NOT NULL`)
+    .get() as { count: number };
   return row.count;
 }
 
@@ -114,7 +157,9 @@ export function getSuccessfulRunsByMonth(year: number, month: number): RunRecord
   const toMonth = month === 12 ? 1 : month + 1;
   const toYear = month === 12 ? year + 1 : year;
   const to = `${toYear}-${String(toMonth).padStart(2, '0')}-01`;
-  return db.prepare(
-    `SELECT * FROM runs WHERE status = 'success' AND summary IS NOT NULL AND started_at >= ? AND started_at < ? ORDER BY started_at ASC`
-  ).all(from, to) as RunRecord[];
+  return db
+    .prepare(
+      `SELECT * FROM runs WHERE status = 'success' AND summary IS NOT NULL AND started_at >= ? AND started_at < ? ORDER BY started_at ASC`,
+    )
+    .all(from, to) as RunRecord[];
 }

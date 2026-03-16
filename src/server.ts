@@ -23,6 +23,7 @@ import {
 import {
   getSettings,
   setSetting,
+  deleteSetting,
   isEditableKey,
   isCredentialKey,
   getSettingsMap,
@@ -31,6 +32,7 @@ import {
 } from './settings-service.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
 import { validateXCookies, detectGqlIds, DEFAULT_GQL_IDS } from './adapters/scraper-reader.js';
+import { testDiscordWebhook } from './adapters/discord-notifier.js';
 
 interface MissingCredential {
   key: string;
@@ -42,9 +44,11 @@ interface MissingCredential {
 function buildCredentialInfo(config: Config) {
   const authToken = getSetting('X_SESSION_AUTH_TOKEN') ?? config.X_SESSION_AUTH_TOKEN ?? '';
   const csrfToken = getSetting('X_SESSION_CSRF_TOKEN') ?? config.X_SESSION_CSRF_TOKEN ?? '';
+  const discordWebhook = getSetting('DISCORD_WEBHOOK_URL') ?? config.DISCORD_WEBHOOK_URL ?? '';
   return {
     authTokenMasked: authToken ? maskCredential(authToken) : '',
     csrfTokenMasked: csrfToken ? maskCredential(csrfToken) : '',
+    discordWebhookMasked: discordWebhook ? maskCredential(discordWebhook) : '',
     hasAuth: !!process.env.ADMIN_PASSWORD,
   };
 }
@@ -135,7 +139,12 @@ export function startServer(
     app.get('/api/config', (c) =>
       c.json({
         envDefaults: {},
-        credentialInfo: { authTokenMasked: '', csrfTokenMasked: '', hasAuth: false },
+        credentialInfo: {
+          authTokenMasked: '',
+          csrfTokenMasked: '',
+          discordWebhookMasked: '',
+          hasAuth: false,
+        },
       }),
     );
   } else {
@@ -326,6 +335,58 @@ export function startServer(
         message: 'Run lancé ! La page se rafraîchira automatiquement.',
       });
     });
+
+    // --- Discord webhook ---
+
+    app.post('/api/discord-webhook', async (c) => {
+      const body = await c.req.json();
+      const url =
+        typeof body.DISCORD_WEBHOOK_URL === 'string' ? body.DISCORD_WEBHOOK_URL.trim() : '';
+
+      if (!url) {
+        return c.json({ success: false, message: "L'URL du webhook est requise." });
+      }
+
+      if (!url.startsWith('https://discord.com/api/webhooks/')) {
+        return c.json({
+          success: false,
+          message: "L'URL doit commencer par https://discord.com/api/webhooks/",
+        });
+      }
+
+      setSetting('DISCORD_WEBHOOK_URL', url);
+      return c.json({
+        success: true,
+        message: 'Webhook Discord sauvegardé.',
+      });
+    });
+
+    app.delete('/api/discord-webhook', (c) => {
+      deleteSetting('DISCORD_WEBHOOK_URL');
+      return c.json({ success: true, message: 'Webhook Discord supprimé.' });
+    });
+
+    app.post('/api/test-discord', async (c) => {
+      const webhookUrl = getSetting('DISCORD_WEBHOOK_URL') ?? config.DISCORD_WEBHOOK_URL;
+      if (!webhookUrl) {
+        return c.json({
+          success: false,
+          message: "Aucun webhook Discord configuré. Ajoutez l'URL dans les paramètres.",
+        });
+      }
+
+      const result = await testDiscordWebhook(webhookUrl);
+      if (result.success) {
+        return c.json({
+          success: true,
+          message: 'Message de test envoyé avec succès sur Discord.',
+        });
+      }
+      return c.json({
+        success: false,
+        message: `Échec de l'envoi : ${result.error}`,
+      });
+    });
   }
 
   // --- Serve React SPA static files ---
@@ -376,6 +437,9 @@ function buildMergedConfig(baseConfig: Config, overrides: Record<string, string>
     }),
     ...(overrides.X_GQL_HOME_TIMELINE_ID && {
       X_GQL_HOME_TIMELINE_ID: overrides.X_GQL_HOME_TIMELINE_ID,
+    }),
+    ...(overrides.DISCORD_WEBHOOK_URL && {
+      DISCORD_WEBHOOK_URL: overrides.DISCORD_WEBHOOK_URL,
     }),
   };
 }

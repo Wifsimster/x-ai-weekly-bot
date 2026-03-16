@@ -14,6 +14,7 @@ export interface RunRecord {
   thread_ids: string | null;
   summary: string | null;
   error_message: string | null;
+  notification_status: 'pending' | 'sent' | 'failed' | 'skipped' | null;
 }
 
 export interface MonthlySummaryRecord {
@@ -29,6 +30,19 @@ export interface SettingRecord {
   key: string;
   value: string;
   updated_at: string;
+}
+
+// Safe ALTER TABLE migration — runs after initial CREATE TABLE migrations.
+// SQLite ignores ADD COLUMN if column already exists when wrapped in try/catch.
+function runAlterMigrations(database: Database.Database) {
+  const alterMigrations = [`ALTER TABLE runs ADD COLUMN notification_status TEXT DEFAULT NULL`];
+  for (const sql of alterMigrations) {
+    try {
+      database.exec(sql);
+    } catch {
+      // Column already exists — safe to ignore
+    }
+  }
 }
 
 const MIGRATIONS = [
@@ -74,6 +88,8 @@ export function getDb(): Database.Database {
     for (const sql of MIGRATIONS) {
       db.exec(sql);
     }
+
+    runAlterMigrations(db);
 
     logger.info('Database initialized', { path: dbPath });
   }

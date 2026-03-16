@@ -21,6 +21,13 @@ const configSchema = z.object({
   ADMIN_PASSWORD: z.string().optional(),
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   CRON_SCHEDULE: z.string().default('0 18 * * 0'),
+  DISCORD_WEBHOOK_URL: z
+    .string()
+    .url()
+    .refine((u) => u.startsWith('https://discord.com/api/webhooks/'), {
+      message: 'Must be a Discord webhook URL (https://discord.com/api/webhooks/...)',
+    })
+    .optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;
