@@ -5,7 +5,7 @@ import { createAIFilter } from './ai-filter.js';
 import { getCurrentRunId, updateRunStats } from './run-service.js';
 
 export async function run(config: Config) {
-  logger.info('Starting weekly summary', {
+  logger.info('Starting daily summary', {
     username: config.X_USERNAME,
     lookbackDays: config.TWEETS_LOOKBACK_DAYS,
   });

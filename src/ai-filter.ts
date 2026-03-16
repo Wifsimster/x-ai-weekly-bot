@@ -17,10 +17,10 @@ Each section should have a bold theme header using uppercase.
 
 If none of the tweets are related to AI or tech, respond with exactly: NO_TECH_NEWS_FOUND`;
 
-const MONTHLY_SYSTEM_PROMPT = `You are a tech news analyst. You receive several weekly AI & tech news summaries.
+const MONTHLY_SYSTEM_PROMPT = `You are a tech news analyst. You receive several daily AI & tech news summaries.
 
 Your task:
-1. Synthesize these weekly summaries into a coherent monthly overview in French
+1. Synthesize these daily summaries into a coherent monthly overview in French
 2. Identify the major trends and recurring themes across weeks
 3. Highlight the most significant developments of the month
 4. Note any emerging patterns or shifts in the AI and tech landscape
@@ -96,7 +96,7 @@ export function createAIFilter(config: Config) {
     ];
 
     const summaryTexts = weeklySummaries
-      .map((s, i) => `[Semaine ${i + 1}]\n${s}`)
+      .map((s, i) => `[Jour ${i + 1}]\n${s}`)
       .join('\n\n---\n\n');
 
     const response = await client.chat.completions.create({
@@ -106,7 +106,7 @@ export function createAIFilter(config: Config) {
         { role: 'system', content: MONTHLY_SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `Voici les résumés hebdomadaires IA & tech du mois de ${monthNames[month - 1]} ${year} (${weeklySummaries.length} semaines) :\n\n${summaryTexts}`,
+          content: `Voici les résumés quotidiens IA & tech du mois de ${monthNames[month - 1]} ${year} (${weeklySummaries.length} jours) :\n\n${summaryTexts}`,
         },
       ],
     });

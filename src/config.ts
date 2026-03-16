@@ -13,14 +13,14 @@ const configSchema = z.object({
 
   GITHUB_TOKEN: z.string().min(1),
   AI_MODEL: z.string().default('openai/gpt-4.1'),
-  TWEETS_LOOKBACK_DAYS: z.coerce.number().int().positive().default(7),
+  TWEETS_LOOKBACK_DAYS: z.coerce.number().int().positive().default(1),
   DRY_RUN: z
     .enum(['true', 'false', '1', '0'])
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
   ADMIN_PASSWORD: z.string().optional(),
   WEB_PORT: z.coerce.number().int().positive().default(3000),
-  CRON_SCHEDULE: z.string().default('0 18 * * 0'),
+  CRON_SCHEDULE: z.string().default('30 7 * * *'),
   DISCORD_WEBHOOK_URL: z
     .string()
     .url()
@@ -35,7 +35,7 @@ export type Config = z.infer<typeof configSchema>;
 // Minimal schema for boot — only needs web server params
 const bootSchema = z.object({
   WEB_PORT: z.coerce.number().int().positive().default(3000),
-  CRON_SCHEDULE: z.string().default('0 18 * * 0'),
+  CRON_SCHEDULE: z.string().default('30 7 * * *'),
   ADMIN_PASSWORD: z.string().optional(),
 });
 

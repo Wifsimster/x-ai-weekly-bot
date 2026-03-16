@@ -37,19 +37,19 @@ if (configResult.success) {
   cron.schedule(
     cronSchedule,
     async () => {
-      logger.info('Cron triggered — starting weekly summary');
+      logger.info('Cron triggered — starting daily summary');
       try {
         const overrides = getSettingsMap();
         const mergedConfig = buildMergedConfig(config, overrides);
         await triggerRun(mergedConfig, 'cron');
       } catch (err) {
-        logger.error('Weekly summary failed', {
+        logger.error('Daily summary failed', {
           message: err instanceof Error ? err.message : String(err),
           stack: err instanceof Error ? err.stack : undefined,
         });
       }
     },
-    { timezone: 'UTC' },
+    { timezone: 'Europe/Paris' },
   );
 } else {
   logger.warn('X AI Weekly Bot started in setup mode — missing credentials', {

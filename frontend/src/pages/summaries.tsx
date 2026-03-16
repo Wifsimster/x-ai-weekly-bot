@@ -20,22 +20,22 @@ function formatDate(dateStr: string): string {
 }
 
 export function SummariesPage() {
-  const [view, setView] = useState<"weekly" | "monthly">("weekly");
+  const [view, setView] = useState<"daily" | "monthly">("daily");
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Syntheses</h1>
-          <p className="text-muted-foreground">Historique des resumes IA hebdomadaires et mensuels</p>
+          <p className="text-muted-foreground">Historique des resumes IA quotidiens et mensuels</p>
         </div>
         <div className="flex gap-1 rounded-lg border p-1 self-start">
           <Button
-            variant={view === "weekly" ? "default" : "ghost"}
+            variant={view === "daily" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setView("weekly")}
+            onClick={() => setView("daily")}
           >
-            Hebdomadaire
+            Quotidien
           </Button>
           <Button
             variant={view === "monthly" ? "default" : "ghost"}
@@ -47,12 +47,12 @@ export function SummariesPage() {
         </div>
       </div>
 
-      {view === "weekly" ? <WeeklyView /> : <MonthlyView />}
+      {view === "daily" ? <DailyView /> : <MonthlyView />}
     </div>
   );
 }
 
-function WeeklyView() {
+function DailyView() {
   const [page, setPage] = useState(0);
   const limit = 10;
   const { data, loading } = useApi<{ summaries: RunRecord[]; total: number }>(
@@ -73,7 +73,7 @@ function WeeklyView() {
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          Aucun resume hebdomadaire disponible.
+          Aucun resume quotidien disponible.
         </CardContent>
       </Card>
     );
@@ -288,7 +288,7 @@ function MonthlySummaryCard({ summary }: { summary: MonthlySummaryRecord }) {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary">{runIds.length} semaines</Badge>
+            <Badge variant="secondary">{runIds.length} jours</Badge>
             <Badge variant="outline">{formatDate(summary.generated_at)}</Badge>
           </div>
         </div>

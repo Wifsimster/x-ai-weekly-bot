@@ -49,7 +49,7 @@ export function formatDiscordPayload(summary: string, runId: number): DiscordPay
   return {
     embeds: [
       {
-        title: 'Veille IA & Tech hebdomadaire',
+        title: 'Veille IA & Tech quotidienne',
         description: truncate(safe, DISCORD_MAX_EMBED_DESC),
         color: 0x1d9bf0, // X/Twitter blue
         footer: { text: `Run #${runId}` },
@@ -113,7 +113,7 @@ export async function sendDiscordNotification(
 export async function testDiscordWebhook(webhookUrl: string): Promise<NotifyResult> {
   const payload: DiscordPayload = {
     content: truncate(
-      'Test de connexion depuis X AI Weekly Bot. Si vous voyez ce message, le webhook est correctement configure.',
+      'Test de connexion depuis X AI Daily Bot. Si vous voyez ce message, le webhook est correctement configure.',
       DISCORD_MAX_CONTENT,
     ),
     allowed_mentions: { parse: [] },

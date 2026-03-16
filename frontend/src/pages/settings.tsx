@@ -220,7 +220,7 @@ export function SettingsPage() {
         <CardHeader>
           <div className="font-semibold">Notifications Discord</div>
           <p className="text-sm text-muted-foreground">
-            Recevez automatiquement les résumés hebdomadaires sur un salon Discord via webhook.
+            Recevez automatiquement les résumés quotidiens sur un salon Discord via webhook.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
