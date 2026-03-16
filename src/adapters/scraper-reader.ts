@@ -124,7 +124,11 @@ export async function validateXCookies(
   }
 }
 
-export function createScraperReader(config: Config): TweetReader {
+export interface GqlIdPersister {
+  save(key: 'X_GQL_USER_BY_SCREEN_NAME_ID' | 'X_GQL_USER_TWEETS_ID', value: string): void;
+}
+
+export function createScraperReader(config: Config, persister?: GqlIdPersister): TweetReader {
   const authToken = config.X_SESSION_AUTH_TOKEN;
   const csrfToken = config.X_SESSION_CSRF_TOKEN;
 
@@ -142,6 +146,10 @@ export function createScraperReader(config: Config): TweetReader {
     'x-twitter-auth-type': 'OAuth2Session',
     'x-twitter-client-language': 'en',
   };
+
+  // Mutable IDs — updated in-place when auto-detection kicks in
+  let userByScreenNameId = config.X_GQL_USER_BY_SCREEN_NAME_ID ?? DEFAULT_GQL_IDS.UserByScreenName;
+  let userTweetsId = config.X_GQL_USER_TWEETS_ID ?? DEFAULT_GQL_IDS.UserTweets;
 
   return { fetchRecentTweets };
 
@@ -186,22 +194,68 @@ export function createScraperReader(config: Config): TweetReader {
     return tweets;
   }
 
+  async function refreshGqlIds(): Promise<boolean> {
+    logger.info('Auto-detecting GraphQL IDs from x.com…');
+    try {
+      const ids = await detectGqlIds();
+      let updated = false;
+      if (ids.UserByScreenName && ids.UserByScreenName !== userByScreenNameId) {
+        userByScreenNameId = ids.UserByScreenName;
+        persister?.save('X_GQL_USER_BY_SCREEN_NAME_ID', ids.UserByScreenName);
+        updated = true;
+      }
+      if (ids.UserTweets && ids.UserTweets !== userTweetsId) {
+        userTweetsId = ids.UserTweets;
+        persister?.save('X_GQL_USER_TWEETS_ID', ids.UserTweets);
+        updated = true;
+      }
+      if (updated) {
+        logger.info('GraphQL IDs updated', { UserByScreenName: userByScreenNameId, UserTweets: userTweetsId });
+      } else {
+        logger.info('GraphQL IDs are already up to date');
+      }
+      return updated;
+    } catch (err) {
+      logger.warn('Failed to auto-detect GraphQL IDs', { error: err instanceof Error ? err.message : String(err) });
+      return false;
+    }
+  }
+
   async function getUserId(username: string): Promise<string> {
+    const result = await tryGetUserId(username);
+    if (result.ok) return result.userId;
+
+    // On 404, try auto-detecting new GQL IDs and retry once
+    if (result.status === 404) {
+      const updated = await refreshGqlIds();
+      if (updated) {
+        const retry = await tryGetUserId(username);
+        if (retry.ok) return retry.userId;
+        throw new Error(retry.error);
+      }
+    }
+
+    throw new Error(result.error);
+  }
+
+  async function tryGetUserId(username: string): Promise<
+    { ok: true; userId: string } | { ok: false; status: number; error: string }
+  > {
     const variables = JSON.stringify({
       screen_name: username,
       withGrokTranslatedBio: false,
     });
 
-    const queryId =
-      config.X_GQL_USER_BY_SCREEN_NAME_ID ?? DEFAULT_GQL_IDS.UserByScreenName;
-    const url = `https://x.com/i/api/graphql/${queryId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${USER_FEATURES_ENCODED}&fieldToggles=${USER_FIELD_TOGGLES_ENCODED}`;
+    const url = `https://x.com/i/api/graphql/${userByScreenNameId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${USER_FEATURES_ENCODED}&fieldToggles=${USER_FIELD_TOGGLES_ENCODED}`;
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      throw new Error(
-        `Scraper: failed to fetch user @${username}: ${response.status} ${response.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`,
-      );
+      return {
+        ok: false,
+        status: response.status,
+        error: `Scraper: failed to fetch user @${username}: ${response.status} ${response.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`,
+      };
     }
 
     const json = (await response.json()) as Record<string, unknown>;
@@ -212,12 +266,14 @@ export function createScraperReader(config: Config): TweetReader {
       'rest_id',
     ]);
     if (typeof userId !== 'string') {
-      throw new Error(
-        `Scraper: user @${username} not found or response structure changed`,
-      );
+      return {
+        ok: false,
+        status: 0,
+        error: `Scraper: user @${username} not found or response structure changed`,
+      };
     }
 
-    return userId;
+    return { ok: true, userId };
   }
 
   async function fetchTimelinePage(
@@ -237,11 +293,22 @@ export function createScraperReader(config: Config): TweetReader {
       variables.cursor = cursor;
     }
 
-    const queryId = config.X_GQL_USER_TWEETS_ID ?? DEFAULT_GQL_IDS.UserTweets;
-    const url = `https://x.com/i/api/graphql/${queryId}/UserTweets?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
+    const url = `https://x.com/i/api/graphql/${userTweetsId}/UserTweets?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
+      // On 404, try auto-detecting new GQL IDs and retry once
+      if (response.status === 404) {
+        const updated = await refreshGqlIds();
+        if (updated) {
+          const retryUrl = `https://x.com/i/api/graphql/${userTweetsId}/UserTweets?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
+          const retryResponse = await fetch(retryUrl, { headers });
+          if (retryResponse.ok) {
+            const retryJson = (await retryResponse.json()) as Record<string, unknown>;
+            return parseTimelineResponse(retryJson);
+          }
+        }
+      }
       const body = await response.text().catch(() => '');
       throw new Error(
         `Scraper: failed to fetch timeline: ${response.status} ${response.statusText}${body ? ` — ${body.slice(0, 200)}` : ''}`,
@@ -249,7 +316,10 @@ export function createScraperReader(config: Config): TweetReader {
     }
 
     const json = (await response.json()) as Record<string, unknown>;
+    return parseTimelineResponse(json);
+  }
 
+  function parseTimelineResponse(json: Record<string, unknown>): { entries: unknown[]; nextCursor: string | undefined } {
     const instructions = (getNestedValue(json, [
       'data',
       'user',
