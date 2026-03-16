@@ -72,6 +72,13 @@ export function startServer(
 
   // --- API endpoints (JSON only) ---
 
+  app.get('/api/version', (c) => {
+    return c.json({
+      version: process.env.APP_VERSION || 'dev',
+      buildDate: process.env.APP_BUILD_DATE || null,
+    });
+  });
+
   // Setup status
   app.get('/api/setup', (c) => {
     const credentials = REQUIRED_CREDENTIALS.map((cred) => ({

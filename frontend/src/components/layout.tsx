@@ -1,9 +1,11 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useTheme } from "@/components/theme-provider";
+import { useApi } from "@/hooks/use-api";
 import { cn } from "@/lib/utils";
 
 export function Layout() {
   const { theme, setTheme } = useTheme();
+  const { data: versionInfo } = useApi<{ version: string; buildDate: string | null }>("/api/version");
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -54,7 +56,10 @@ export function Layout() {
       </main>
       <footer className="border-t py-4">
         <div className="container mx-auto px-4">
-          <p className="text-xs text-muted-foreground">X AI Weekly Bot v{window.__APP_VERSION__ || "dev"}</p>
+          <p className="text-xs text-muted-foreground">
+            X AI Weekly Bot v{versionInfo?.version || "dev"}
+            {versionInfo?.buildDate && <> — Build {versionInfo.buildDate}</>}
+          </p>
         </div>
       </footer>
     </div>
