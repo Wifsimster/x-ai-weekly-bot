@@ -50,11 +50,62 @@ const tweetLegacySchema = z.object({
   retweeted_status_result: z.unknown().optional(),
 });
 
-export function createScraperReader(config: Config): TweetReader {
+export async function validateXCookies(
+  authToken: string,
+  csrfToken: string,
+  username: string,
+  gqlId?: string,
+): Promise<{ valid: boolean; error?: string }> {
   const headers: Record<string, string> = {
     authorization: `Bearer ${BEARER_TOKEN}`,
-    cookie: `auth_token=${config.X_SESSION_AUTH_TOKEN}; ct0=${config.X_SESSION_CSRF_TOKEN}`,
-    'x-csrf-token': config.X_SESSION_CSRF_TOKEN,
+    cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
+    'x-csrf-token': csrfToken,
+    'x-twitter-active-user': 'yes',
+    'x-twitter-auth-type': 'OAuth2Session',
+    'x-twitter-client-language': 'en',
+  };
+
+  const variables = JSON.stringify({
+    screen_name: username,
+    withSafetyModeUserFields: true,
+  });
+
+  const queryId = gqlId ?? 'qW5u-DAuXpMEG0zA1F7UGQ';
+  const url = `https://x.com/i/api/graphql/${queryId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${FEATURES_ENCODED}`;
+
+  try {
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return { valid: false, error: 'Cookies invalides ou expirés' };
+      }
+      return { valid: false, error: `HTTP ${response.status}: ${response.statusText}` };
+    }
+    const json = (await response.json()) as Record<string, unknown>;
+    const userId = getNestedValue(json, ['data', 'user', 'result', 'rest_id']);
+    if (typeof userId !== 'string') {
+      return { valid: false, error: 'Utilisateur non trouvé ou structure de réponse modifiée' };
+    }
+    return { valid: true };
+  } catch (err) {
+    return { valid: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export function createScraperReader(config: Config): TweetReader {
+  const authToken = config.X_SESSION_AUTH_TOKEN;
+  const csrfToken = config.X_SESSION_CSRF_TOKEN;
+
+  if (!authToken || !csrfToken) {
+    throw new Error(
+      'Session cookies X non configurés. Mettez-les à jour dans Paramètres > Session Cookies.',
+    );
+  }
+
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${BEARER_TOKEN}`,
+    cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
+    'x-csrf-token': csrfToken,
     'x-twitter-active-user': 'yes',
     'x-twitter-auth-type': 'OAuth2Session',
     'x-twitter-client-language': 'en',
