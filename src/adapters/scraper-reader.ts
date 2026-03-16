@@ -51,19 +51,10 @@ const tweetLegacySchema = z.object({
 });
 
 export function createScraperReader(config: Config): TweetReader {
-  const authToken = config.X_SESSION_AUTH_TOKEN;
-  const csrfToken = config.X_SESSION_CSRF_TOKEN;
-
-  if (!authToken || !csrfToken) {
-    throw new Error(
-      'X_SESSION_AUTH_TOKEN and X_SESSION_CSRF_TOKEN are required when X_READ_METHOD=scraper',
-    );
-  }
-
   const headers: Record<string, string> = {
     authorization: `Bearer ${BEARER_TOKEN}`,
-    cookie: `auth_token=${authToken}; ct0=${csrfToken}`,
-    'x-csrf-token': csrfToken,
+    cookie: `auth_token=${config.X_SESSION_AUTH_TOKEN}; ct0=${config.X_SESSION_CSRF_TOKEN}`,
+    'x-csrf-token': config.X_SESSION_CSRF_TOKEN,
     'x-twitter-active-user': 'yes',
     'x-twitter-auth-type': 'OAuth2Session',
     'x-twitter-client-language': 'en',

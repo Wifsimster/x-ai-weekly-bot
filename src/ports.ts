@@ -9,10 +9,6 @@ export interface TweetReader {
   fetchRecentTweets(): Promise<Tweet[]>;
 }
 
-export interface TweetPoster {
-  postThread(chunks: string[]): Promise<string[]>;
-}
-
 export function isXUrl(url: string): boolean {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
