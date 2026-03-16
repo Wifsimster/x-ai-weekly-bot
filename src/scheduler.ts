@@ -1,23 +1,43 @@
 import cron from 'node-cron';
 import { loadConfig } from './config.js';
 import { logger } from './logger.js';
-import { run } from './index.js';
+import { triggerRun } from './run-service.js';
+import { getSettingsMap } from './settings-service.js';
+import { startServer } from './server.js';
+import { getDb } from './db.js';
 
 const config = loadConfig();
+const cronSchedule = config.CRON_SCHEDULE;
+
+// Initialize database
+getDb();
+
+// Start back-office web server
+startServer(config, cronSchedule, config.WEB_PORT);
 
 logger.info('X AI Weekly Bot scheduler started', {
   username: config.X_USERNAME,
-  cron: '0 18 * * 0',
+  cron: cronSchedule,
   dryRun: config.DRY_RUN,
+  webPort: config.WEB_PORT,
 });
 
-// Run every Sunday at 18:00 UTC
+// Scheduled run
 cron.schedule(
-  '0 18 * * 0',
+  cronSchedule,
   async () => {
     logger.info('Cron triggered — starting weekly summary');
     try {
-      await run(config);
+      // Merge settings overrides
+      const overrides = getSettingsMap();
+      const mergedConfig = {
+        ...config,
+        ...(overrides.CLAUDE_MODEL && { CLAUDE_MODEL: overrides.CLAUDE_MODEL }),
+        ...(overrides.TWEETS_LOOKBACK_DAYS && { TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS) }),
+        ...(overrides.MAX_TWEETS && { MAX_TWEETS: Number(overrides.MAX_TWEETS) }),
+        ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
+      };
+      await triggerRun(mergedConfig, 'cron');
     } catch (err) {
       logger.error('Weekly summary failed', {
         message: err instanceof Error ? err.message : String(err),

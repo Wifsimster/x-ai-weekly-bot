@@ -5,6 +5,10 @@ services:
     image: ghcr.io/wifsimster/x-ai-weekly-bot:latest
     container_name: x-ai-weekly-bot
     restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - bot-data:/app/data
     env_file:
       - .env
     environment:
@@ -16,12 +20,17 @@ services:
       - X_ACCESS_TOKEN_SECRET=${X_ACCESS_TOKEN_SECRET}
       - X_USERNAME=${X_USERNAME}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - WEB_PORT=3000
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     networks:
       lan:
+
+volumes:
+  bot-data:
 
 networks:
   lan:

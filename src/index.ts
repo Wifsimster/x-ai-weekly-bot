@@ -3,6 +3,7 @@ import { logger } from './logger.js';
 import { createXClient } from './x-client.js';
 import { createAIFilter } from './ai-filter.js';
 import { buildThread } from './thread-builder.js';
+import { getCurrentRunId, updateRunStats } from './run-service.js';
 
 export async function run(config: Config) {
   logger.info('Starting weekly summary', {
@@ -13,9 +14,12 @@ export async function run(config: Config) {
 
   const xClient = createXClient(config);
   const aiFilter = createAIFilter(config);
+  const runId = getCurrentRunId();
 
   // 1. Fetch recent tweets
   const tweets = await xClient.fetchRecentTweets();
+  if (runId) updateRunStats(runId, { tweets_fetched: tweets.length });
+
   if (tweets.length === 0) {
     logger.warn('No tweets found in the lookback period');
     return;
@@ -23,6 +27,8 @@ export async function run(config: Config) {
 
   // 2. Filter and summarize AI news
   const summary = await aiFilter.filterAndSummarize(tweets);
+  if (runId && summary) updateRunStats(runId, { summary });
+
   if (!summary) {
     logger.info('No AI news to post — skipping');
     return;
@@ -45,6 +51,7 @@ export async function run(config: Config) {
   }
 
   const tweetIds = await xClient.postThread(chunks);
+  if (runId) updateRunStats(runId, { tweets_posted: tweetIds.length, thread_ids: JSON.stringify(tweetIds) });
   logger.info('Thread posted successfully', { tweetIds });
 }
 

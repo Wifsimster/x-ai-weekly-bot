@@ -14,6 +14,9 @@ const configSchema = z.object({
     .enum(['true', 'false', '1', '0'])
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
+  ADMIN_PASSWORD: z.string().optional(),
+  WEB_PORT: z.coerce.number().int().positive().default(3000),
+  CRON_SCHEDULE: z.string().default('0 18 * * 0'),
 });
 
 export type Config = z.infer<typeof configSchema>;
