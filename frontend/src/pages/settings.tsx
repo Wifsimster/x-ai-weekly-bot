@@ -14,7 +14,11 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { humanizeCron } from '@/lib/utils';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import type { ConfigResponse } from '@/types';
+
+type Flash = { type: 'success' | 'error'; message: string } | null;
 
 interface SettingField {
   key: string;
@@ -23,57 +27,57 @@ interface SettingField {
   options?: string[];
 }
 
-const FIELDS: SettingField[] = [
-  { key: 'AI_MODEL', label: 'Modèle IA', type: 'text' },
-  { key: 'TWEETS_LOOKBACK_DAYS', label: 'Jours à analyser', type: 'number' },
+const BOT_FIELDS: SettingField[] = [
+  { key: 'AI_MODEL', label: 'Modele IA', type: 'text' },
+  { key: 'TWEETS_LOOKBACK_DAYS', label: 'Jours a analyser', type: 'number' },
   { key: 'DRY_RUN', label: 'Mode test (dry run)', type: 'select', options: ['false', 'true'] },
-  { key: 'CRON_SCHEDULE', label: 'Planification cron', type: 'text' },
-  { key: 'X_GQL_USER_BY_SCREEN_NAME_ID', label: 'GraphQL ID — UserByScreenName', type: 'text' },
-  { key: 'X_GQL_HOME_TIMELINE_ID', label: 'GraphQL ID — HomeLatestTimeline', type: 'text' },
 ];
 
+function StatusDot({ configured }: { configured: boolean }) {
+  return configured ? (
+    <CheckCircle2 className="h-4 w-4 text-emerald-500" aria-label="Configure" />
+  ) : (
+    <XCircle className="h-4 w-4 text-destructive" aria-label="Non configure" />
+  );
+}
+
+function CardFlash({ flash }: { flash: Flash }) {
+  if (!flash) return null;
+  return (
+    <Alert
+      variant={flash.type === 'success' ? 'success' : 'destructive'}
+      aria-live="polite"
+    >
+      <AlertDescription>{flash.message}</AlertDescription>
+    </Alert>
+  );
+}
+
 export function SettingsPage() {
-  const { data: config, loading } = useApi<ConfigResponse>('/api/config');
-  const [flash, setFlash] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const { data: config, loading, refetch } = useApi<ConfigResponse>('/api/config');
+
+  // Per-card flash states
+  const [flashCookies, setFlashCookies] = useState<Flash>(null);
+  const [flashSettings, setFlashSettings] = useState<Flash>(null);
+  const [flashDiscord, setFlashDiscord] = useState<Flash>(null);
+  const [flashGql, setFlashGql] = useState<Flash>(null);
+
+  // Per-card loading states
   const [saving, setSaving] = useState(false);
   const [savingCreds, setSavingCreds] = useState(false);
   const [savingDiscord, setSavingDiscord] = useState(false);
   const [testingDiscord, setTestingDiscord] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const [showManualGql, setShowManualGql] = useState(false);
+
   const selectValuesRef = useRef<Record<string, string>>({});
 
-  const handleSettingsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSaving(true);
-    setFlash(null);
-    const formData = new FormData(e.currentTarget);
-    const body: Record<string, string> = {};
-    for (const [key, value] of formData.entries()) {
-      body[key] = value as string;
-    }
-    // Merge select values tracked via Radix (not in FormData)
-    for (const [key, value] of Object.entries(selectValuesRef.current)) {
-      body[key] = value;
-    }
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      setFlash({ type: data.success ? 'success' : 'error', message: data.message });
-    } catch {
-      setFlash({ type: 'error', message: 'Erreur lors de la sauvegarde.' });
-    } finally {
-      setSaving(false);
-    }
-  };
+  // --- Handlers ---
 
   const handleCredentialsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSavingCreds(true);
-    setFlash(null);
+    setFlashCookies(null);
     const formData = new FormData(e.currentTarget);
     const body = {
       X_SESSION_AUTH_TOKEN: formData.get('X_SESSION_AUTH_TOKEN') as string,
@@ -86,14 +90,90 @@ export function SettingsPage() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      setFlash({ type: data.success ? 'success' : 'error', message: data.message });
-      if (data.success) e.currentTarget.reset();
+      setFlashCookies({ type: data.success ? 'success' : 'error', message: data.message });
+      if (data.success) {
+        e.currentTarget.reset();
+        refetch();
+      }
     } catch {
-      setFlash({ type: 'error', message: 'Erreur lors de la validation des cookies.' });
+      setFlashCookies({ type: 'error', message: 'Erreur lors de la validation des cookies.' });
     } finally {
       setSavingCreds(false);
     }
   };
+
+  const handleSettingsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+    setFlashSettings(null);
+    const formData = new FormData(e.currentTarget);
+    const body: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      body[key] = value as string;
+    }
+    for (const [key, value] of Object.entries(selectValuesRef.current)) {
+      body[key] = value;
+    }
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      setFlashSettings({ type: data.success ? 'success' : 'error', message: data.message });
+      if (data.success) refetch();
+    } catch {
+      setFlashSettings({ type: 'error', message: 'Erreur lors de la sauvegarde.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDetectGql = async () => {
+    setDetecting(true);
+    setFlashGql(null);
+    try {
+      const res = await fetch('/api/detect-gql-ids', { method: 'POST' });
+      const data = await res.json();
+      setFlashGql({ type: data.success ? 'success' : 'error', message: data.message });
+      if (data.success) refetch();
+    } catch {
+      setFlashGql({ type: 'error', message: 'Erreur lors de la detection.' });
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  const handleSaveGql = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+    setFlashGql(null);
+    const formData = new FormData(e.currentTarget);
+    const body: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      body[key] = value as string;
+    }
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      setFlashGql({ type: data.success ? 'success' : 'error', message: data.message });
+      if (data.success) {
+        refetch();
+        setShowManualGql(false);
+      }
+    } catch {
+      setFlashGql({ type: 'error', message: 'Erreur lors de la sauvegarde.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- Render ---
 
   if (loading || !config) {
     return (
@@ -102,38 +182,118 @@ export function SettingsPage() {
           <Skeleton className="h-8 w-40" />
           <Skeleton className="mt-2 h-4 w-96" />
         </div>
+        <Skeleton className="h-48 rounded-lg" />
         <Skeleton className="h-64 rounded-lg" />
         <Skeleton className="h-32 rounded-lg" />
-        <Skeleton className="h-48 rounded-lg" />
+        <Skeleton className="h-32 rounded-lg" />
       </div>
     );
   }
 
   const { envDefaults, credentialInfo } = config;
+  const cronSchedule = envDefaults['CRON_SCHEDULE'] || '30 7 * * *';
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Paramètres</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Parametres</h1>
         <p className="text-muted-foreground">
-          Configuration du bot — les valeurs personnalisées prennent le pas sur les variables
+          Configuration du bot — les valeurs personnalisees prennent le pas sur les variables
           d'environnement
         </p>
       </div>
 
-      {flash && (
-        <Alert variant={flash.type === 'success' ? 'success' : 'destructive'}>
-          <AlertDescription>{flash.message}</AlertDescription>
+      {/* Page-level auth warning banner */}
+      {!credentialInfo.hasAuth && (
+        <Alert variant="warning">
+          <AlertDescription>
+            <strong>Dashboard non protege</strong> — Configurez la variable d'environnement{' '}
+            <code className="font-mono text-xs">ADMIN_PASSWORD</code> pour securiser l'acces aux
+            cookies de session et aux parametres sensibles.
+          </AlertDescription>
         </Alert>
       )}
 
+      {/* Card 1: Session Cookies X */}
       <Card>
         <CardHeader>
-          <div className="font-semibold">Paramètres de configuration</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold">Session Cookies X</div>
+              <p className="text-sm text-muted-foreground">
+                Cookies de session pour le scraping — extraits depuis votre navigateur (DevTools &gt;
+                Application &gt; Cookies &gt; x.com)
+              </p>
+            </div>
+            <StatusDot configured={!!credentialInfo.authTokenMasked && !!credentialInfo.csrfTokenMasked} />
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <CardFlash flash={flashCookies} />
+
+          <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="auth_token">auth_token</Label>
+              <Input
+                id="auth_token"
+                name="X_SESSION_AUTH_TOKEN"
+                type="password"
+                placeholder="Collez votre auth_token ici"
+                autoComplete="off"
+              />
+              <p className="text-xs text-muted-foreground">
+                {credentialInfo.authTokenMasked ? (
+                  <>
+                    Valeur actuelle :{' '}
+                    <code className="font-mono">{credentialInfo.authTokenMasked}</code>
+                  </>
+                ) : (
+                  'Non configure'
+                )}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="csrf_token">ct0 (CSRF token)</Label>
+              <Input
+                id="csrf_token"
+                name="X_SESSION_CSRF_TOKEN"
+                type="password"
+                placeholder="Collez votre ct0 ici"
+                autoComplete="off"
+              />
+              <p className="text-xs text-muted-foreground">
+                {credentialInfo.csrfTokenMasked ? (
+                  <>
+                    Valeur actuelle :{' '}
+                    <code className="font-mono">{credentialInfo.csrfTokenMasked}</code>
+                  </>
+                ) : (
+                  'Non configure'
+                )}
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <Button type="submit" disabled={savingCreds}>
+                {savingCreds ? 'Validation...' : 'Valider et sauvegarder'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Les cookies seront testes contre l'API X avant d'etre sauvegardes.
+              </p>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Card 2: Bot Behavior */}
+      <Card>
+        <CardHeader>
+          <div className="font-semibold">Comportement du bot</div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <CardFlash flash={flashSettings} />
+
           <form onSubmit={handleSettingsSubmit} className="space-y-4">
-            {FIELDS.map((field) => {
+            {BOT_FIELDS.map((field) => {
               const envVal = envDefaults[field.key] || '';
               return (
                 <div
@@ -179,6 +339,24 @@ export function SettingsPage() {
                 </div>
               );
             })}
+
+            {/* CRON_SCHEDULE: read-only display */}
+            <div className="grid gap-2 sm:grid-cols-[200px_1fr_auto] items-center">
+              <div>
+                <Label>Planification</Label>
+                <p className="text-xs text-muted-foreground font-mono">CRON_SCHEDULE</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
+                  {humanizeCron(cronSchedule)}
+                </code>
+                <span className="text-xs text-muted-foreground">({cronSchedule})</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Modifiable via variable d'environnement (redemarrage requis)
+              </p>
+            </div>
+
             <Button type="submit" disabled={saving}>
               {saving ? 'Enregistrement...' : 'Enregistrer'}
             </Button>
@@ -186,49 +364,27 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Card 3: Discord Notifications */}
       <Card>
         <CardHeader>
-          <div className="font-semibold">Détection automatique des IDs GraphQL</div>
-          <p className="text-sm text-muted-foreground">
-            Les IDs GraphQL changent quand X déploie une nouvelle version. Cliquez pour détecter les
-            IDs actuels depuis x.com.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Button
-            disabled={detecting}
-            onClick={async () => {
-              setDetecting(true);
-              setFlash(null);
-              try {
-                const res = await fetch('/api/detect-gql-ids', { method: 'POST' });
-                const data = await res.json();
-                setFlash({ type: data.success ? 'success' : 'error', message: data.message });
-              } catch {
-                setFlash({ type: 'error', message: 'Erreur lors de la détection.' });
-              } finally {
-                setDetecting(false);
-              }
-            }}
-          >
-            {detecting ? 'Détection en cours...' : 'Détecter les IDs GraphQL'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="font-semibold">Notifications Discord</div>
-          <p className="text-sm text-muted-foreground">
-            Recevez automatiquement les résumés quotidiens sur un salon Discord via webhook.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold">Notifications Discord</div>
+              <p className="text-sm text-muted-foreground">
+                Recevez automatiquement les resumes quotidiens sur un salon Discord via webhook.
+              </p>
+            </div>
+            <StatusDot configured={!!credentialInfo.discordWebhookMasked} />
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <CardFlash flash={flashDiscord} />
+
           <form
             onSubmit={async (e) => {
               e.preventDefault();
               setSavingDiscord(true);
-              setFlash(null);
+              setFlashDiscord(null);
               const formData = new FormData(e.currentTarget);
               const url = (formData.get('DISCORD_WEBHOOK_URL') as string)?.trim();
               try {
@@ -238,10 +394,19 @@ export function SettingsPage() {
                   body: JSON.stringify({ DISCORD_WEBHOOK_URL: url }),
                 });
                 const data = await res.json();
-                setFlash({ type: data.success ? 'success' : 'error', message: data.message });
-                if (data.success) e.currentTarget.reset();
+                setFlashDiscord({
+                  type: data.success ? 'success' : 'error',
+                  message: data.message,
+                });
+                if (data.success) {
+                  e.currentTarget.reset();
+                  refetch();
+                }
               } catch {
-                setFlash({ type: 'error', message: 'Erreur lors de la sauvegarde du webhook.' });
+                setFlashDiscord({
+                  type: 'error',
+                  message: 'Erreur lors de la sauvegarde du webhook.',
+                });
               } finally {
                 setSavingDiscord(false);
               }
@@ -264,11 +429,11 @@ export function SettingsPage() {
                     <code className="font-mono">{credentialInfo.discordWebhookMasked}</code>
                   </>
                 ) : (
-                  'Non configuré'
+                  'Non configure'
                 )}
               </p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <Button type="submit" disabled={savingDiscord}>
                 {savingDiscord ? 'Enregistrement...' : 'Sauvegarder'}
               </Button>
@@ -278,13 +443,16 @@ export function SettingsPage() {
                 disabled={testingDiscord || !credentialInfo.discordWebhookMasked}
                 onClick={async () => {
                   setTestingDiscord(true);
-                  setFlash(null);
+                  setFlashDiscord(null);
                   try {
                     const res = await fetch('/api/test-discord', { method: 'POST' });
                     const data = await res.json();
-                    setFlash({ type: data.success ? 'success' : 'error', message: data.message });
+                    setFlashDiscord({
+                      type: data.success ? 'success' : 'error',
+                      message: data.message,
+                    });
                   } catch {
-                    setFlash({ type: 'error', message: 'Erreur lors du test.' });
+                    setFlashDiscord({ type: 'error', message: 'Erreur lors du test.' });
                   } finally {
                     setTestingDiscord(false);
                   }
@@ -297,75 +465,76 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Card 4: GraphQL IDs (merged: display + detect + manual edit) */}
       <Card>
         <CardHeader>
-          <div className="font-semibold">Session Cookies X</div>
+          <div className="font-semibold">IDs GraphQL X</div>
           <p className="text-sm text-muted-foreground">
-            Cookies de session pour le scraping — extraits depuis votre navigateur (DevTools &gt;
-            Application &gt; Cookies &gt; x.com)
+            Les IDs GraphQL changent quand X deploie une nouvelle version. Utilisez la detection
+            automatique ou modifiez-les manuellement si necessaire.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!credentialInfo.hasAuth && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                Il est fortement recommandé de configurer{' '}
-                <code className="font-mono text-xs">ADMIN_PASSWORD</code> pour protéger l'accès aux
-                cookies de session.
-              </AlertDescription>
-            </Alert>
-          )}
+          <CardFlash flash={flashGql} />
 
-          <form onSubmit={handleCredentialsSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="auth_token">auth_token</Label>
-              <Input
-                id="auth_token"
-                name="X_SESSION_AUTH_TOKEN"
-                type="password"
-                placeholder="Collez votre auth_token ici"
-                autoComplete="off"
-              />
-              <p className="text-xs text-muted-foreground">
-                {credentialInfo.authTokenMasked ? (
-                  <>
-                    Valeur actuelle :{' '}
-                    <code className="font-mono">{credentialInfo.authTokenMasked}</code>
-                  </>
-                ) : (
-                  'Non configuré'
-                )}
-              </p>
+          {/* Read-only display of current IDs */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-muted-foreground font-mono">UserByScreenName</p>
+              <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
+                {envDefaults['X_GQL_USER_BY_SCREEN_NAME_ID'] || 'Non detecte'}
+              </code>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="csrf_token">ct0 (CSRF token)</Label>
-              <Input
-                id="csrf_token"
-                name="X_SESSION_CSRF_TOKEN"
-                type="password"
-                placeholder="Collez votre ct0 ici"
-                autoComplete="off"
-              />
-              <p className="text-xs text-muted-foreground">
-                {credentialInfo.csrfTokenMasked ? (
-                  <>
-                    Valeur actuelle :{' '}
-                    <code className="font-mono">{credentialInfo.csrfTokenMasked}</code>
-                  </>
-                ) : (
-                  'Non configuré'
-                )}
-              </p>
+            <div>
+              <p className="text-xs text-muted-foreground font-mono">HomeLatestTimeline</p>
+              <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
+                {envDefaults['X_GQL_HOME_TIMELINE_ID'] || 'Non detecte'}
+              </code>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <Button type="submit" disabled={savingCreds}>
-                {savingCreds ? 'Validation...' : 'Valider et sauvegarder'}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={handleDetectGql} disabled={detecting}>
+              {detecting ? 'Detection en cours...' : 'Detecter les IDs GraphQL'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowManualGql(!showManualGql)}
+            >
+              {showManualGql ? 'Masquer' : 'Modifier manuellement'}
+            </Button>
+          </div>
+
+          {/* Manual edit toggle */}
+          {showManualGql && (
+            <form onSubmit={handleSaveGql} className="space-y-4 border-t pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="gql_user">UserByScreenName ID</Label>
+                <Input
+                  id="gql_user"
+                  name="X_GQL_USER_BY_SCREEN_NAME_ID"
+                  type="text"
+                  defaultValue={envDefaults['X_GQL_USER_BY_SCREEN_NAME_ID'] || ''}
+                  placeholder="ex: qW5u-DAuXpMEG0zA1F7UGQ"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gql_timeline">HomeLatestTimeline ID</Label>
+                <Input
+                  id="gql_timeline"
+                  name="X_GQL_HOME_TIMELINE_ID"
+                  type="text"
+                  defaultValue={envDefaults['X_GQL_HOME_TIMELINE_ID'] || ''}
+                  placeholder="ex: ulQKqowrFU94KfUAZqgGvg"
+                />
+              </div>
+              <Button type="submit" disabled={saving}>
+                {saving ? 'Enregistrement...' : 'Sauvegarder les IDs'}
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Les cookies seront testés contre l'API X avant d'être sauvegardés.
-              </p>
-            </div>
-          </form>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
