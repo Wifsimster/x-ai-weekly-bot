@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z, type ZodIssue } from 'zod';
 
 const configSchema = z
   .object({
@@ -33,6 +33,9 @@ const configSchema = z
       .enum(['true', 'false', '1', '0'])
       .default('false')
       .transform((v) => v === 'true' || v === '1'),
+    ADMIN_PASSWORD: z.string().optional(),
+    WEB_PORT: z.coerce.number().int().positive().default(3000),
+    CRON_SCHEDULE: z.string().default('0 18 * * 0'),
   })
   .refine(
     (c) => {
@@ -54,6 +57,51 @@ const configSchema = z
   );
 
 export type Config = z.infer<typeof configSchema>;
+
+// Minimal schema for boot — only needs web server params
+const bootSchema = z.object({
+  WEB_PORT: z.coerce.number().int().positive().default(3000),
+  CRON_SCHEDULE: z.string().default('0 18 * * 0'),
+  ADMIN_PASSWORD: z.string().optional(),
+});
+
+export type BootConfig = z.infer<typeof bootSchema>;
+
+export const REQUIRED_CREDENTIALS = [
+  { key: 'X_USERNAME', label: 'X (Twitter) Username', docUrl: 'https://developer.x.com/' },
+  { key: 'X_SESSION_AUTH_TOKEN', label: 'X Session Auth Token (cookie: auth_token)', docUrl: 'https://developer.x.com/' },
+  { key: 'X_SESSION_CSRF_TOKEN', label: 'X Session CSRF Token (cookie: ct0)', docUrl: 'https://developer.x.com/' },
+  { key: 'ANTHROPIC_API_KEY', label: 'Anthropic API Key', docUrl: 'https://console.anthropic.com/' },
+] as const;
+
+export interface ConfigResult {
+  success: true;
+  config: Config;
+}
+
+export interface ConfigError {
+  success: false;
+  missing: { key: string; label: string; docUrl: string; message: string }[];
+}
+
+export function tryLoadConfig(): ConfigResult | ConfigError {
+  const result = configSchema.safeParse(process.env);
+  if (result.success) {
+    return { success: true, config: result.data };
+  }
+
+  const failedKeys = new Set(result.error.issues.map((i: ZodIssue) => i.path[0] as string));
+  const missing = REQUIRED_CREDENTIALS.filter((c) => failedKeys.has(c.key)).map((c) => ({
+    ...c,
+    message: result.error.issues.find((i: ZodIssue) => i.path[0] === c.key)?.message || 'Required',
+  }));
+
+  return { success: false, missing };
+}
+
+export function loadBootConfig(): BootConfig {
+  return bootSchema.parse(process.env);
+}
 
 export function loadConfig(): Config {
   const result = configSchema.safeParse(process.env);

@@ -1,29 +1,64 @@
 import cron from 'node-cron';
-import { loadConfig } from './config.js';
+import { tryLoadConfig, loadBootConfig } from './config.js';
 import { logger } from './logger.js';
-import { run } from './index.js';
+import { triggerRun } from './run-service.js';
+import { getSettingsMap } from './settings-service.js';
+import { startServer } from './server.js';
+import { getDb } from './db.js';
+import type { Config } from './config.js';
 
-const config = loadConfig();
+// Always initialize database and boot the web server
+getDb();
 
-logger.info('X AI Weekly Bot scheduler started', {
-  username: config.X_USERNAME,
-  cron: '0 18 * * 0',
-  dryRun: config.DRY_RUN,
-});
+const bootConfig = loadBootConfig();
+const configResult = tryLoadConfig();
 
-// Run every Sunday at 18:00 UTC
-cron.schedule(
-  '0 18 * * 0',
-  async () => {
-    logger.info('Cron triggered — starting weekly summary');
-    try {
-      await run(config);
-    } catch (err) {
-      logger.error('Weekly summary failed', {
-        message: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-    }
-  },
-  { timezone: 'UTC' },
+// Start web server — always, even if config is incomplete
+startServer(
+  configResult.success ? configResult.config : null,
+  configResult.success ? null : configResult.missing,
+  bootConfig.CRON_SCHEDULE,
+  bootConfig.WEB_PORT,
 );
+
+if (configResult.success) {
+  const config = configResult.config;
+  const cronSchedule = config.CRON_SCHEDULE;
+
+  logger.info('X AI Weekly Bot scheduler started', {
+    username: config.X_USERNAME,
+    cron: cronSchedule,
+    dryRun: config.DRY_RUN,
+    webPort: bootConfig.WEB_PORT,
+  });
+
+  // Scheduled run
+  cron.schedule(
+    cronSchedule,
+    async () => {
+      logger.info('Cron triggered — starting weekly summary');
+      try {
+        const overrides = getSettingsMap();
+        const mergedConfig: Config = {
+          ...config,
+          ...(overrides.CLAUDE_MODEL && { CLAUDE_MODEL: overrides.CLAUDE_MODEL }),
+          ...(overrides.TWEETS_LOOKBACK_DAYS && { TWEETS_LOOKBACK_DAYS: Number(overrides.TWEETS_LOOKBACK_DAYS) }),
+          ...(overrides.MAX_TWEETS && { MAX_TWEETS: Number(overrides.MAX_TWEETS) }),
+          ...(overrides.DRY_RUN !== undefined && { DRY_RUN: overrides.DRY_RUN === 'true' || overrides.DRY_RUN === '1' }),
+        };
+        await triggerRun(mergedConfig, 'cron');
+      } catch (err) {
+        logger.error('Weekly summary failed', {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+      }
+    },
+    { timezone: 'UTC' },
+  );
+} else {
+  logger.warn('X AI Weekly Bot started in setup mode — missing credentials', {
+    missing: configResult.missing.map((m) => m.key),
+    webPort: bootConfig.WEB_PORT,
+  });
+}
