@@ -14,13 +14,6 @@ services:
     environment:
       - TZ=Europe/Paris
       - NODE_ENV=production
-      - X_API_KEY=${X_API_KEY}
-      - X_API_SECRET=${X_API_SECRET}
-      - X_ACCESS_TOKEN=${X_ACCESS_TOKEN}
-      - X_ACCESS_TOKEN_SECRET=${X_ACCESS_TOKEN_SECRET}
-      - X_USERNAME=${X_USERNAME}
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - WEB_PORT=3000
     security_opt:
       - no-new-privileges:true
