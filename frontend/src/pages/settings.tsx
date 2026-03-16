@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useApi } from "@/hooks/use-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ConfigResponse } from "@/types";
 
 interface SettingField {
@@ -15,8 +18,8 @@ interface SettingField {
 }
 
 const FIELDS: SettingField[] = [
-  { key: "AI_MODEL", label: "Modele IA", type: "text" },
-  { key: "TWEETS_LOOKBACK_DAYS", label: "Jours a analyser", type: "number" },
+  { key: "AI_MODEL", label: "Modèle IA", type: "text" },
+  { key: "TWEETS_LOOKBACK_DAYS", label: "Jours à analyser", type: "number" },
   { key: "MAX_TWEETS", label: "Max tweets", type: "number" },
   { key: "DRY_RUN", label: "Mode test (dry run)", type: "select", options: ["false", "true"] },
   { key: "CRON_SCHEDULE", label: "Planification cron", type: "text" },
@@ -30,6 +33,7 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [savingCreds, setSavingCreds] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const selectValuesRef = useRef<Record<string, string>>({});
 
   const handleSettingsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,6 +43,10 @@ export function SettingsPage() {
     const body: Record<string, string> = {};
     for (const [key, value] of formData.entries()) {
       body[key] = value as string;
+    }
+    // Merge select values tracked via Radix (not in FormData)
+    for (const [key, value] of Object.entries(selectValuesRef.current)) {
+      body[key] = value;
     }
     try {
       const res = await fetch("/api/settings", {
@@ -80,15 +88,27 @@ export function SettingsPage() {
     }
   };
 
-  if (loading || !config) return <div className="text-muted-foreground">Chargement...</div>;
+  if (loading || !config) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="mt-2 h-4 w-96" />
+        </div>
+        <Skeleton className="h-64 rounded-lg" />
+        <Skeleton className="h-32 rounded-lg" />
+        <Skeleton className="h-48 rounded-lg" />
+      </div>
+    );
+  }
 
   const { envDefaults, credentialInfo } = config;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Parametres</h1>
-        <p className="text-muted-foreground">Configuration du bot — les valeurs personnalisees prennent le pas sur les variables d'environnement</p>
+        <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
+        <p className="text-muted-foreground">Configuration du bot — les valeurs personnalisées prennent le pas sur les variables d'environnement</p>
       </div>
 
       {flash && (
@@ -99,7 +119,7 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <div className="font-semibold">Parametres de configuration</div>
+          <div className="font-semibold">Paramètres de configuration</div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSettingsSubmit} className="space-y-4">
@@ -108,24 +128,25 @@ export function SettingsPage() {
               return (
                 <div key={field.key} className="grid gap-2 sm:grid-cols-[200px_1fr_auto] items-center">
                   <div>
-                    <label className="font-medium text-sm" htmlFor={field.key}>
-                      {field.label}
-                    </label>
+                    <Label htmlFor={field.key}>{field.label}</Label>
                     <p className="text-xs text-muted-foreground font-mono">{field.key}</p>
                   </div>
                   {field.type === "select" && field.options ? (
-                    <select
-                      name={field.key}
-                      id={field.key}
+                    <Select
                       defaultValue={envVal}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      onValueChange={(v) => { selectValuesRef.current[field.key] = v; }}
                     >
-                      {field.options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id={field.key}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {field.options.map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <Input name={field.key} id={field.key} type={field.type} defaultValue={envVal} placeholder={envVal} />
                   )}
@@ -144,9 +165,9 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <div className="font-semibold">Detection automatique des IDs GraphQL</div>
+          <div className="font-semibold">Détection automatique des IDs GraphQL</div>
           <p className="text-sm text-muted-foreground">
-            Les IDs GraphQL changent quand X deploie une nouvelle version. Cliquez pour detecter les IDs actuels depuis x.com.
+            Les IDs GraphQL changent quand X déploie une nouvelle version. Cliquez pour détecter les IDs actuels depuis x.com.
           </p>
         </CardHeader>
         <CardContent>
@@ -160,13 +181,13 @@ export function SettingsPage() {
                 const data = await res.json();
                 setFlash({ type: data.success ? "success" : "error", message: data.message });
               } catch {
-                setFlash({ type: "error", message: "Erreur lors de la detection." });
+                setFlash({ type: "error", message: "Erreur lors de la détection." });
               } finally {
                 setDetecting(false);
               }
             }}
           >
-            {detecting ? "Detection en cours..." : "Detecter les IDs GraphQL"}
+            {detecting ? "Détection en cours..." : "Détecter les IDs GraphQL"}
           </Button>
         </CardContent>
       </Card>
@@ -182,35 +203,31 @@ export function SettingsPage() {
           {!credentialInfo.hasAuth && (
             <Alert variant="destructive">
               <AlertDescription>
-                Il est fortement recommande de configurer <code className="font-mono text-xs">ADMIN_PASSWORD</code> pour proteger l'acces aux cookies de session.
+                Il est fortement recommandé de configurer <code className="font-mono text-xs">ADMIN_PASSWORD</code> pour protéger l'accès aux cookies de session.
               </AlertDescription>
             </Alert>
           )}
 
           <form onSubmit={handleCredentialsSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="font-medium text-sm" htmlFor="auth_token">
-                auth_token
-              </label>
+              <Label htmlFor="auth_token">auth_token</Label>
               <Input id="auth_token" name="X_SESSION_AUTH_TOKEN" type="password" placeholder="Collez votre auth_token ici" autoComplete="off" />
               <p className="text-xs text-muted-foreground">
                 {credentialInfo.authTokenMasked ? (
                   <>Valeur actuelle : <code className="font-mono">{credentialInfo.authTokenMasked}</code></>
                 ) : (
-                  "Non configure"
+                  "Non configuré"
                 )}
               </p>
             </div>
             <div className="space-y-2">
-              <label className="font-medium text-sm" htmlFor="csrf_token">
-                ct0 (CSRF token)
-              </label>
+              <Label htmlFor="csrf_token">ct0 (CSRF token)</Label>
               <Input id="csrf_token" name="X_SESSION_CSRF_TOKEN" type="password" placeholder="Collez votre ct0 ici" autoComplete="off" />
               <p className="text-xs text-muted-foreground">
                 {credentialInfo.csrfTokenMasked ? (
                   <>Valeur actuelle : <code className="font-mono">{credentialInfo.csrfTokenMasked}</code></>
                 ) : (
-                  "Non configure"
+                  "Non configuré"
                 )}
               </p>
             </div>
@@ -218,7 +235,7 @@ export function SettingsPage() {
               <Button type="submit" disabled={savingCreds}>
                 {savingCreds ? "Validation..." : "Valider et sauvegarder"}
               </Button>
-              <p className="text-xs text-muted-foreground">Les cookies seront testes contre l'API X avant d'etre sauvegardes.</p>
+              <p className="text-xs text-muted-foreground">Les cookies seront testés contre l'API X avant d'être sauvegardés.</p>
             </div>
           </form>
         </CardContent>
