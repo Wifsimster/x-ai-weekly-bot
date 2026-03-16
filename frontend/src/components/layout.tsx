@@ -31,6 +31,9 @@ export function Layout() {
             <NavLink to="/runs" className={navLinkClass}>
               Historique
             </NavLink>
+            <NavLink to="/summaries" className={navLinkClass}>
+              Synthèses
+            </NavLink>
             <NavLink to="/settings" className={navLinkClass}>
               Paramètres
             </NavLink>

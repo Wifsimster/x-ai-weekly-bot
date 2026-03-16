@@ -47,6 +47,21 @@ export interface CredentialStatus {
   configured: boolean;
 }
 
+export interface MonthlySummaryRecord {
+  id: number;
+  year: number;
+  month: number;
+  summary: string;
+  source_run_ids: string;
+  generated_at: string;
+}
+
+export interface AvailableMonth {
+  year: number;
+  month: number;
+  run_count: number;
+}
+
 export interface ApiMessage {
   success: boolean;
   message: string;

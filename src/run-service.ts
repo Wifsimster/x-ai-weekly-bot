@@ -92,3 +92,29 @@ export function getCurrentRunId(): number | undefined {
   const row = db.prepare("SELECT id FROM runs WHERE status = 'running' ORDER BY id DESC LIMIT 1").get() as { id: number } | undefined;
   return row?.id;
 }
+
+export function getSuccessfulSummaries(limit = 20, offset = 0): RunRecord[] {
+  const db = getDb();
+  return db.prepare(
+    `SELECT * FROM runs WHERE status = 'success' AND summary IS NOT NULL ORDER BY started_at DESC LIMIT ? OFFSET ?`
+  ).all(limit, offset) as RunRecord[];
+}
+
+export function countSuccessfulSummaries(): number {
+  const db = getDb();
+  const row = db.prepare(
+    `SELECT COUNT(*) as count FROM runs WHERE status = 'success' AND summary IS NOT NULL`
+  ).get() as { count: number };
+  return row.count;
+}
+
+export function getSuccessfulRunsByMonth(year: number, month: number): RunRecord[] {
+  const db = getDb();
+  const from = `${year}-${String(month).padStart(2, '0')}-01`;
+  const toMonth = month === 12 ? 1 : month + 1;
+  const toYear = month === 12 ? year + 1 : year;
+  const to = `${toYear}-${String(toMonth).padStart(2, '0')}-01`;
+  return db.prepare(
+    `SELECT * FROM runs WHERE status = 'success' AND summary IS NOT NULL AND started_at >= ? AND started_at < ? ORDER BY started_at ASC`
+  ).all(from, to) as RunRecord[];
+}

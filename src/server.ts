@@ -5,7 +5,8 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { logger } from './logger.js';
-import { getRunHistory, getLastRun, isRunning, triggerRun } from './run-service.js';
+import { getRunHistory, getLastRun, isRunning, triggerRun, getSuccessfulSummaries, countSuccessfulSummaries, getSuccessfulRunsByMonth } from './run-service.js';
+import { generateMonthlySummary, getMonthlySummary, listMonthlySummaries, getAvailableMonths } from './monthly-summary-service.js';
 import { getSettings, setSetting, isEditableKey, isCredentialKey, getSettingsMap, getSetting, maskCredential } from './settings-service.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
 import { validateXCookies, detectGqlIds, DEFAULT_GQL_IDS } from './adapters/scraper-reader.js';
@@ -183,6 +184,57 @@ export function startServer(
         success: true,
         message: 'Cookies de session mis à jour et validés avec succès. Les prochains runs utiliseront ces valeurs.',
       });
+    });
+
+    // --- Summaries API ---
+
+    app.get('/api/summaries', (c) => {
+      const limit = Number(c.req.query('limit') || '20');
+      const offset = Number(c.req.query('offset') || '0');
+      const summaries = getSuccessfulSummaries(limit, offset);
+      const total = countSuccessfulSummaries();
+      return c.json({ summaries, total });
+    });
+
+    app.get('/api/monthly-summaries', (c) => {
+      const summaries = listMonthlySummaries();
+      return c.json(summaries);
+    });
+
+    app.get('/api/monthly-summaries/available', (c) => {
+      return c.json(getAvailableMonths());
+    });
+
+    app.get('/api/monthly-summaries/:year/:month', (c) => {
+      const year = Number(c.req.param('year'));
+      const month = Number(c.req.param('month'));
+      if (!year || !month || month < 1 || month > 12) {
+        return c.json({ error: 'Année et mois invalides.' }, 400);
+      }
+      const summary = getMonthlySummary(year, month);
+      if (!summary) {
+        const runs = getSuccessfulRunsByMonth(year, month);
+        return c.json({ exists: false, availableRuns: runs.length });
+      }
+      return c.json({ exists: true, summary });
+    });
+
+    app.post('/api/monthly-summaries/generate', async (c) => {
+      const body = await c.req.json();
+      const year = Number(body.year);
+      const month = Number(body.month);
+      if (!year || !month || month < 1 || month > 12) {
+        return c.json({ success: false, message: 'Année et mois invalides.' }, 400);
+      }
+      try {
+        const overrides = getSettingsMap();
+        const mergedConfig = buildMergedConfig(config, overrides);
+        const summary = await generateMonthlySummary(mergedConfig, year, month);
+        return c.json({ success: true, summary });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return c.json({ success: false, message: msg }, 500);
+      }
     });
 
     app.post('/api/detect-gql-ids', async (c) => {

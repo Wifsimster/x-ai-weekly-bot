@@ -16,6 +16,15 @@ export interface RunRecord {
   error_message: string | null;
 }
 
+export interface MonthlySummaryRecord {
+  id: number;
+  year: number;
+  month: number;
+  summary: string;
+  source_run_ids: string;
+  generated_at: string;
+}
+
 export interface SettingRecord {
   key: string;
   value: string;
@@ -39,6 +48,15 @@ const MIGRATIONS = [
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS monthly_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    summary TEXT NOT NULL,
+    source_run_ids TEXT NOT NULL,
+    generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(year, month)
   )`,
 ];
 
