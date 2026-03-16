@@ -46,8 +46,10 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Copy package files for production install
 COPY package.json package-lock.json ./
 
-# Install production dependencies only
-RUN npm ci --omit=dev --ignore-scripts
+# Install production dependencies only (better-sqlite3 needs build tools)
+RUN apk add --no-cache python3 make g++ && \
+    npm ci --omit=dev && \
+    apk del python3 make g++
 
 # Copy built artifacts
 COPY --from=builder /app/dist ./dist
@@ -55,6 +57,9 @@ COPY --from=builder /app/dist ./dist
 # Copy startup script
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
+
+# Create data directory for SQLite
+RUN mkdir -p /app/data
 
 # Set ownership
 RUN chown -R bot:nodejs /app
@@ -64,8 +69,12 @@ USER bot
 
 ENV NODE_ENV=production
 
-# Health check — verify the node process is alive
+EXPOSE 3000
+
+VOLUME ["/app/data"]
+
+# Health check via HTTP
 HEALTHCHECK --interval=60s --timeout=5s --start-period=10s --retries=3 \
-    CMD pgrep -x node > /dev/null || exit 1
+    CMD wget -q --spider http://localhost:3000/healthz || exit 1
 
 CMD ["/docker-entrypoint.sh"]
