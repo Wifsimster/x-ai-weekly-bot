@@ -1,29 +1,41 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { useTheme } from "@/components/theme-provider";
-import { useApi } from "@/hooks/use-api";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { BrainCircuit } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { NavLink, Link, Outlet } from 'react-router-dom';
+import { useTheme } from '@/components/theme-provider';
+import { useApi } from '@/hooks/use-api';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { BrainCircuit } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return cn(
-    "text-sm transition-colors hover:text-foreground py-1 border-b-2",
-    isActive ? "text-foreground font-medium border-primary" : "text-muted-foreground border-transparent",
+    'text-sm transition-colors hover:text-foreground py-1 border-b-2',
+    isActive
+      ? 'text-foreground font-medium border-primary'
+      : 'text-muted-foreground border-transparent',
   );
 }
 
 export function Layout() {
   const { theme, setTheme } = useTheme();
-  const { data: versionInfo } = useApi<{ version: string; buildDate: string | null }>("/api/version");
+  const { data: versionInfo } = useApi<{ version: string; buildDate: string | null }>(
+    '/api/version',
+  );
 
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="border-b border-primary/15 bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between px-4 h-14">
-          <span className="font-bold text-lg flex items-center gap-2">
-            <BrainCircuit className="h-5 w-5 text-primary" />
-            X AI Weekly Bot
-          </span>
+          <Link
+            to="/"
+            className="font-bold text-lg flex items-center gap-2 hover:text-primary transition-colors"
+          >
+            <BrainCircuit className="h-5 w-5 text-primary" />X AI Weekly Bot
+          </Link>
           <div className="flex items-center gap-4">
             <NavLink to="/" end className={navLinkClass}>
               Dashboard
@@ -37,7 +49,7 @@ export function Layout() {
             <NavLink to="/settings" className={navLinkClass}>
               Paramètres
             </NavLink>
-            <Select value={theme} onValueChange={(v) => setTheme(v as "light" | "dark" | "system")}>
+            <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
               <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Thème">
                 <SelectValue />
               </SelectTrigger>
@@ -56,7 +68,7 @@ export function Layout() {
       <footer className="border-t py-4">
         <div className="container mx-auto px-4">
           <p className="text-xs text-muted-foreground">
-            X AI Weekly Bot v{versionInfo?.version || "dev"}
+            X AI Weekly Bot v{versionInfo?.version || 'dev'}
             {versionInfo?.buildDate && <> — Build {versionInfo.buildDate}</>}
           </p>
         </div>
