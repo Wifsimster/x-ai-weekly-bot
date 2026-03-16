@@ -84,6 +84,16 @@ export async function triggerRun(
   }
 }
 
+export function getRunById(id: number): RunRecord | undefined {
+  const db = getDb();
+  return db.prepare('SELECT * FROM runs WHERE id = ?').get(id) as RunRecord | undefined;
+}
+
+export function updateNotificationStatus(runId: number, status: string): void {
+  const db = getDb();
+  db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run(status, runId);
+}
+
 export function getRunHistory(limit = 20): RunRecord[] {
   const db = getDb();
   return db.prepare('SELECT * FROM runs ORDER BY id DESC LIMIT ?').all(limit) as RunRecord[];

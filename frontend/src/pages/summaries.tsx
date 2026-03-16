@@ -7,8 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { StatCard } from "@/components/stat-card";
 import { MarkdownContent } from "@/components/markdown-content";
-import { BookOpen, Calendar, TrendingUp, Loader2 } from "lucide-react";
-import type { RunRecord, MonthlySummaryRecord, AvailableMonth } from "@/types";
+import { BookOpen, Calendar, TrendingUp, Loader2, Send, Check, X } from "lucide-react";
+import type { RunRecord, MonthlySummaryRecord, AvailableMonth, ConfigResponse } from "@/types";
 
 const MONTH_NAMES = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -59,6 +59,8 @@ function DailyView() {
   const { data, loading } = useApi<{ summaries: RunRecord[]; total: number }>(
     `/api/summaries?limit=${limit}&offset=${page * limit}`
   );
+  const { data: configData } = useApi<ConfigResponse>("/api/config");
+  const discordConfigured = !!configData?.credentialInfo.discordWebhookMasked;
 
   if (loading) {
     return (
@@ -90,7 +92,7 @@ function DailyView() {
 
       <div className="space-y-4">
         {data.summaries.map((run) => (
-          <SummaryCard key={run.id} run={run} />
+          <SummaryCard key={run.id} run={run} discordConfigured={discordConfigured} />
         ))}
       </div>
 
@@ -121,8 +123,33 @@ function DailyView() {
   );
 }
 
-function SummaryCard({ run }: { run: RunRecord }) {
+function SummaryCard({ run, discordConfigured }: { run: RunRecord; discordConfigured: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<"success" | "error" | null>(null);
+  const [notifStatus, setNotifStatus] = useState(run.notification_status);
+
+  const handleSendDiscord = async () => {
+    setSending(true);
+    setSendResult(null);
+    try {
+      const res = await fetch(`/api/runs/${run.id}/send-discord`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSendResult("success");
+        setNotifStatus("sent");
+      } else {
+        setSendResult("error");
+      }
+    } catch {
+      setSendResult("error");
+    } finally {
+      setSending(false);
+      setTimeout(() => setSendResult(null), 3000);
+    }
+  };
 
   return (
     <Card className="border-l-4 border-l-primary/20">
@@ -133,8 +160,33 @@ function SummaryCard({ run }: { run: RunRecord }) {
             <span className="font-medium text-sm sm:text-base">{formatDate(run.started_at)}</span>
           </div>
           <div className="flex items-center gap-2">
+            {notifStatus === "sent" && (
+              <Badge variant="secondary" className="text-green-600 dark:text-green-400">Discord</Badge>
+            )}
             <Badge variant="secondary">{run.tweets_fetched} tweets</Badge>
             <Badge variant="outline">Run #{run.id}</Badge>
+            {discordConfigured && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={sending}
+                onClick={handleSendDiscord}
+                className="h-7 px-2 text-xs"
+              >
+                {sending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : sendResult === "success" ? (
+                  <Check className="h-3.5 w-3.5 text-green-600" />
+                ) : sendResult === "error" ? (
+                  <X className="h-3.5 w-3.5 text-destructive" />
+                ) : (
+                  <>
+                    <Send className="h-3.5 w-3.5 mr-1" />
+                    Discord
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
