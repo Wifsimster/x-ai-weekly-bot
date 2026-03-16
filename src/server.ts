@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
 import { basicAuth } from 'hono/basic-auth';
 import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { logger } from './logger.js';
 import { getRunHistory, getLastRun, isRunning, triggerRun } from './run-service.js';
 import { getSettings, setSetting, isEditableKey, isCredentialKey, getSettingsMap, getSetting, maskCredential } from './settings-service.js';
-import { layout, dashboardPage, runsPage, settingsPage, setupPage, setupLayout } from './web/templates.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
 import { validateXCookies } from './adapters/scraper-reader.js';
 
@@ -13,6 +15,26 @@ interface MissingCredential {
   label: string;
   docUrl: string;
   message: string;
+}
+
+function buildCredentialInfo(config: Config) {
+  const authToken = getSetting('X_SESSION_AUTH_TOKEN') ?? config.X_SESSION_AUTH_TOKEN ?? '';
+  const csrfToken = getSetting('X_SESSION_CSRF_TOKEN') ?? config.X_SESSION_CSRF_TOKEN ?? '';
+  return {
+    authTokenMasked: authToken ? maskCredential(authToken) : '',
+    csrfTokenMasked: csrfToken ? maskCredential(csrfToken) : '',
+    hasAuth: !!process.env.ADMIN_PASSWORD,
+  };
+}
+
+function buildEnvDefaults(config: Config, cronSchedule: string) {
+  return {
+    AI_MODEL: config.AI_MODEL,
+    TWEETS_LOOKBACK_DAYS: String(config.TWEETS_LOOKBACK_DAYS),
+    MAX_TWEETS: String(config.MAX_TWEETS),
+    DRY_RUN: String(config.DRY_RUN),
+    CRON_SCHEDULE: cronSchedule,
+  };
 }
 
 export function startServer(
@@ -46,196 +68,40 @@ export function startServer(
     }, 503);
   });
 
-  // Setup page — shown when config is incomplete
-  app.get('/setup', (c) => {
-    if (isConfigured) {
-      return c.redirect('/');
-    }
+  // --- API endpoints (JSON only) ---
+
+  // Setup status
+  app.get('/api/setup', (c) => {
     const credentials = REQUIRED_CREDENTIALS.map((cred) => ({
       ...cred,
       configured: !!process.env[cred.key] || !!getSetting(cred.key),
     }));
-    const content = setupPage(credentials);
-    return c.html(setupLayout('Configuration requise', content));
+    return c.json({ configured: isConfigured, credentials });
   });
 
   if (!isConfigured) {
-    // In setup mode — redirect all main routes to /setup
-    app.get('/', (c) => c.redirect('/setup'));
-    app.get('/runs', (c) => c.redirect('/setup'));
-    app.get('/settings', (c) => c.redirect('/setup'));
-    app.post('/settings', (c) => c.redirect('/setup'));
-    app.post('/settings/credentials', (c) => c.redirect('/setup'));
+    // In setup mode — limited API
     app.post('/api/trigger', (c) =>
-      c.html('<div class="flash flash-error">Configuration incomplète. Configurez les variables d\'environnement requises.</div>')
+      c.json({ success: false, message: 'Configuration incomplète. Configurez les variables d\'environnement requises.' })
     );
     app.get('/api/status', (c) =>
-      c.json({ running: false, configured: false, missing: (missingCredentials || []).map((m) => m.key) })
+      c.json({ running: false, configured: false, missing: (missingCredentials || []).map((m) => m.key), cronSchedule, totalRuns: 0 })
     );
     app.get('/api/runs', (c) => c.json([]));
     app.get('/api/settings', (c) => c.json([]));
+    app.get('/api/config', (c) => c.json({ envDefaults: {}, credentialInfo: { authTokenMasked: '', csrfTokenMasked: '', hasAuth: false } }));
   } else {
-    // Normal operational mode
-    // Dashboard
-    app.get('/', (c) => {
-      const lastRun = getLastRun();
-      const totalRuns = getRunHistory(1000).length;
-      const cookiesExpired = lastRun?.error_message?.includes('401') || lastRun?.error_message?.includes('403') || lastRun?.error_message?.includes('Session cookies') || false;
-      const content = dashboardPage(lastRun, cronSchedule, isRunning(), totalRuns, cookiesExpired);
-      return c.html(layout('Dashboard', content, '/'));
-    });
+    // Normal operational mode — full API
 
-    // Run history
-    app.get('/runs', (c) => {
-      const runs = getRunHistory(50);
-      const content = runsPage(runs);
-      return c.html(layout('Historique', content, '/runs'));
-    });
-
-    // Settings page
-    app.get('/settings', (c) => {
-      const settings = getSettings();
-      const envDefaults: Record<string, string> = {
-        AI_MODEL: config.AI_MODEL,
-        TWEETS_LOOKBACK_DAYS: String(config.TWEETS_LOOKBACK_DAYS),
-        MAX_TWEETS: String(config.MAX_TWEETS),
-        DRY_RUN: String(config.DRY_RUN),
-        CRON_SCHEDULE: cronSchedule,
-      };
-      const authToken = getSetting('X_SESSION_AUTH_TOKEN') ?? config.X_SESSION_AUTH_TOKEN ?? '';
-      const csrfToken = getSetting('X_SESSION_CSRF_TOKEN') ?? config.X_SESSION_CSRF_TOKEN ?? '';
-      const credentialInfo = {
-        authTokenMasked: authToken ? maskCredential(authToken) : '',
-        csrfTokenMasked: csrfToken ? maskCredential(csrfToken) : '',
-        hasAuth: !!process.env.ADMIN_PASSWORD,
-      };
-      const content = settingsPage(settings, envDefaults, undefined, credentialInfo);
-      return c.html(layout('Paramètres', content, '/settings'));
-    });
-
-    // Settings form POST (tuning parameters)
-    app.post('/settings', async (c) => {
-      const body = await c.req.parseBody();
-      let updated = 0;
-
-      for (const [key, value] of Object.entries(body)) {
-        if (isEditableKey(key) && typeof value === 'string') {
-          setSetting(key, value);
-          updated++;
-        }
-      }
-
-      const settings = getSettings();
-      const envDefaults: Record<string, string> = {
-        AI_MODEL: config.AI_MODEL,
-        TWEETS_LOOKBACK_DAYS: String(config.TWEETS_LOOKBACK_DAYS),
-        MAX_TWEETS: String(config.MAX_TWEETS),
-        DRY_RUN: String(config.DRY_RUN),
-        CRON_SCHEDULE: cronSchedule,
-      };
-      const authToken = getSetting('X_SESSION_AUTH_TOKEN') ?? config.X_SESSION_AUTH_TOKEN ?? '';
-      const csrfToken = getSetting('X_SESSION_CSRF_TOKEN') ?? config.X_SESSION_CSRF_TOKEN ?? '';
-      const credentialInfo = {
-        authTokenMasked: authToken ? maskCredential(authToken) : '',
-        csrfTokenMasked: csrfToken ? maskCredential(csrfToken) : '',
-        hasAuth: !!process.env.ADMIN_PASSWORD,
-      };
-      const content = settingsPage(settings, envDefaults, {
-        type: 'success',
-        message: `${updated} paramètre(s) mis à jour. Les changements seront appliqués au prochain run.`,
-      }, credentialInfo);
-      return c.html(layout('Paramètres', content, '/settings'));
-    });
-
-    // Credentials form POST (session cookies — validate then save)
-    app.post('/settings/credentials', async (c) => {
-      const body = await c.req.parseBody();
-      const authToken = typeof body.X_SESSION_AUTH_TOKEN === 'string' ? body.X_SESSION_AUTH_TOKEN.trim() : '';
-      const csrfToken = typeof body.X_SESSION_CSRF_TOKEN === 'string' ? body.X_SESSION_CSRF_TOKEN.trim() : '';
-
-      const settings = getSettings();
-      const envDefaults: Record<string, string> = {
-        AI_MODEL: config.AI_MODEL,
-        TWEETS_LOOKBACK_DAYS: String(config.TWEETS_LOOKBACK_DAYS),
-        MAX_TWEETS: String(config.MAX_TWEETS),
-        DRY_RUN: String(config.DRY_RUN),
-        CRON_SCHEDULE: cronSchedule,
-      };
-
-      if (!authToken || !csrfToken) {
-        const credentialInfo = {
-          authTokenMasked: authToken || (getSetting('X_SESSION_AUTH_TOKEN') ? maskCredential(getSetting('X_SESSION_AUTH_TOKEN')!) : ''),
-          csrfTokenMasked: csrfToken || (getSetting('X_SESSION_CSRF_TOKEN') ? maskCredential(getSetting('X_SESSION_CSRF_TOKEN')!) : ''),
-          hasAuth: !!process.env.ADMIN_PASSWORD,
-        };
-        const content = settingsPage(settings, envDefaults, {
-          type: 'error',
-          message: 'Les deux champs (auth_token et ct0) sont requis.',
-        }, credentialInfo);
-        return c.html(layout('Paramètres', content, '/settings'));
-      }
-
-      // Validate cookies against X API
-      const validation = await validateXCookies(
-        authToken,
-        csrfToken,
-        config.X_USERNAME,
-        config.X_GQL_USER_BY_SCREEN_NAME_ID,
-      );
-
-      if (!validation.valid) {
-        const credentialInfo = {
-          authTokenMasked: getSetting('X_SESSION_AUTH_TOKEN') ? maskCredential(getSetting('X_SESSION_AUTH_TOKEN')!) : '',
-          csrfTokenMasked: getSetting('X_SESSION_CSRF_TOKEN') ? maskCredential(getSetting('X_SESSION_CSRF_TOKEN')!) : '',
-          hasAuth: !!process.env.ADMIN_PASSWORD,
-        };
-        const content = settingsPage(settings, envDefaults, {
-          type: 'error',
-          message: `Cookies invalides : ${validation.error}. Vérifiez les valeurs et réessayez.`,
-        }, credentialInfo);
-        return c.html(layout('Paramètres', content, '/settings'));
-      }
-
-      // Save validated cookies
-      setSetting('X_SESSION_AUTH_TOKEN', authToken);
-      setSetting('X_SESSION_CSRF_TOKEN', csrfToken);
-
-      const credentialInfo = {
-        authTokenMasked: maskCredential(authToken),
-        csrfTokenMasked: maskCredential(csrfToken),
-        hasAuth: !!process.env.ADMIN_PASSWORD,
-      };
-      const content = settingsPage(settings, envDefaults, {
-        type: 'success',
-        message: 'Cookies de session mis à jour et validés avec succès. Les prochains runs utiliseront ces valeurs.',
-      }, credentialInfo);
-      return c.html(layout('Paramètres', content, '/settings'));
-    });
-
-    // Manual trigger (htmx)
-    app.post('/api/trigger', async (c) => {
-      if (isRunning()) {
-        return c.html('<div class="flash flash-error">Un run est déjà en cours.</div>');
-      }
-
-      const overrides = getSettingsMap();
-      const mergedConfig = buildMergedConfig(config, overrides);
-
-      triggerRun(mergedConfig, 'manual').catch((err) => {
-        logger.error('Manual trigger failed', { error: err instanceof Error ? err.message : String(err) });
-      });
-
-      return c.html('<div class="flash flash-success">Run lancé ! Rafraîchissez la page pour suivre la progression.</div>');
-    });
-
-    // API endpoints
     app.get('/api/status', (c) => {
       const lastRun = getLastRun();
+      const totalRuns = getRunHistory(1000).length;
       return c.json({
         running: isRunning(),
         configured: true,
         lastRun,
         cronSchedule,
+        totalRuns,
       });
     });
 
@@ -245,13 +111,100 @@ export function startServer(
     });
 
     app.get('/api/settings', (c) => {
-      // Mask credential values in API response
       const settings = getSettings().map((s) =>
         isCredentialKey(s.key) ? { ...s, value: maskCredential(s.value) } : s
       );
       return c.json(settings);
     });
+
+    app.get('/api/config', (c) => {
+      return c.json({
+        envDefaults: buildEnvDefaults(config, cronSchedule),
+        credentialInfo: buildCredentialInfo(config),
+      });
+    });
+
+    app.post('/api/settings', async (c) => {
+      const body = await c.req.json();
+      let updated = 0;
+
+      for (const [key, value] of Object.entries(body)) {
+        if (isEditableKey(key) && typeof value === 'string') {
+          setSetting(key, value);
+          updated++;
+        }
+      }
+
+      return c.json({
+        success: true,
+        message: `${updated} paramètre(s) mis à jour. Les changements seront appliqués au prochain run.`,
+      });
+    });
+
+    app.post('/api/credentials', async (c) => {
+      const body = await c.req.json();
+      const authToken = typeof body.X_SESSION_AUTH_TOKEN === 'string' ? body.X_SESSION_AUTH_TOKEN.trim() : '';
+      const csrfToken = typeof body.X_SESSION_CSRF_TOKEN === 'string' ? body.X_SESSION_CSRF_TOKEN.trim() : '';
+
+      if (!authToken || !csrfToken) {
+        return c.json({
+          success: false,
+          message: 'Les deux champs (auth_token et ct0) sont requis.',
+        });
+      }
+
+      const validation = await validateXCookies(
+        authToken,
+        csrfToken,
+        config.X_USERNAME,
+        config.X_GQL_USER_BY_SCREEN_NAME_ID,
+      );
+
+      if (!validation.valid) {
+        return c.json({
+          success: false,
+          message: `Cookies invalides : ${validation.error}. Vérifiez les valeurs et réessayez.`,
+        });
+      }
+
+      setSetting('X_SESSION_AUTH_TOKEN', authToken);
+      setSetting('X_SESSION_CSRF_TOKEN', csrfToken);
+
+      return c.json({
+        success: true,
+        message: 'Cookies de session mis à jour et validés avec succès. Les prochains runs utiliseront ces valeurs.',
+      });
+    });
+
+    app.post('/api/trigger', async (c) => {
+      if (isRunning()) {
+        return c.json({ success: false, message: 'Un run est déjà en cours.' });
+      }
+
+      const overrides = getSettingsMap();
+      const mergedConfig = buildMergedConfig(config, overrides);
+
+      triggerRun(mergedConfig, 'manual').catch((err) => {
+        logger.error('Manual trigger failed', { error: err instanceof Error ? err.message : String(err) });
+      });
+
+      return c.json({ success: true, message: 'Run lancé ! La page se rafraîchira automatiquement.' });
+    });
   }
+
+  // --- Serve React SPA static files ---
+  app.use('/*', serveStatic({ root: './dist/frontend' }));
+
+  // SPA fallback — serve index.html for all non-API routes
+  app.get('*', async (c) => {
+    try {
+      const indexPath = path.join(process.cwd(), 'dist', 'frontend', 'index.html');
+      const html = await readFile(indexPath, 'utf-8');
+      return c.html(html);
+    } catch {
+      return c.text('Frontend not built. Run npm run build:frontend', 500);
+    }
+  });
 
   // Error handler
   app.onError((err, c) => {

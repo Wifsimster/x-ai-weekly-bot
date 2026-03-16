@@ -7,11 +7,14 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run build:frontend",
+    "build:backend": "tsc",
+    "build:frontend": "cd frontend && npx vite build",
     "start": "node dist/scheduler.js",
     "start:once": "node dist/index.js",
     "dev": "node --env-file=.env dist/scheduler.js",
     "dev:once": "node --env-file=.env dist/index.js",
+    "dev:frontend": "cd frontend && npx vite",
     "lint": "eslint src/",
     "format": "prettier --write src/",
     "docker:build": "docker build --build-arg VERSION=$(node -p \"require('./package.json').version\") --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) -t ghcr.io/wifsimster/x-ai-weekly-bot:latest .",
@@ -25,19 +28,32 @@
   "dependencies": {
     "@hono/node-server": "^1.19.11",
     "better-sqlite3": "^12.8.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "hono": "^4.12.8",
+    "lucide-react": "^0.468.0",
     "node-cron": "^3.0.3",
     "openai": "^6.29.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.0",
+    "tailwind-merge": "^2.6.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
+    "@tailwindcss/vite": "^4.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.0.0",
     "@types/node-cron": "^3.0.11",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
     "eslint": "^9.39.0",
     "prettier": "^3.8.0",
+    "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.54.0"
+    "typescript-eslint": "^8.54.0",
+    "vite": "^6.0.0"
   }
 }
