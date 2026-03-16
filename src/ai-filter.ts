@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Config } from './config.js';
-import type { Tweet } from './x-client.js';
+import type { Tweet } from './ports.js';
 import { logger } from './logger.js';
 
 const SYSTEM_PROMPT = `You are an AI news curator. You receive a list of tweets from a user's X timeline.
