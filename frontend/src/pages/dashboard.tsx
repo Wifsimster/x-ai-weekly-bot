@@ -6,6 +6,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Activity, Clock, Zap } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -86,11 +87,11 @@ export function DashboardPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Total runs">{totalRuns}</StatCard>
-        <StatCard title="Planification">
+        <StatCard title="Total runs" icon={Activity}>{totalRuns}</StatCard>
+        <StatCard title="Planification" icon={Clock}>
           <span className="text-base font-mono">{cronSchedule}</span>
         </StatCard>
-        <StatCard title="Statut actuel">
+        <StatCard title="Statut actuel" icon={Zap}>
           {running ? <StatusBadge status="running" /> : <span className="text-muted-foreground text-base">Inactif</span>}
         </StatCard>
       </div>
@@ -117,7 +118,7 @@ export function DashboardPage() {
             </div>
 
             {lastRun.summary && (
-              <div className="rounded-lg border p-4">
+              <div className="rounded-lg border border-l-4 border-l-primary/30 p-4">
                 <p className="font-semibold mb-2">Résumé IA</p>
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">{lastRun.summary}</div>
               </div>

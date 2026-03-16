@@ -2,10 +2,14 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useTheme } from "@/components/theme-provider";
 import { useApi } from "@/hooks/use-api";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { BrainCircuit } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
-  return cn("text-sm transition-colors hover:text-foreground", isActive ? "text-foreground font-medium" : "text-muted-foreground");
+  return cn(
+    "text-sm transition-colors hover:text-foreground py-1 border-b-2",
+    isActive ? "text-foreground font-medium border-primary" : "text-muted-foreground border-transparent",
+  );
 }
 
 export function Layout() {
@@ -14,9 +18,12 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <nav className="border-b bg-card">
+      <nav className="border-b border-primary/15 bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between px-4 h-14">
-          <span className="font-bold text-lg">X AI Weekly Bot</span>
+          <span className="font-bold text-lg flex items-center gap-2">
+            <BrainCircuit className="h-5 w-5 text-primary" />
+            X AI Weekly Bot
+          </span>
           <div className="flex items-center gap-4">
             <NavLink to="/" end className={navLinkClass}>
               Dashboard
