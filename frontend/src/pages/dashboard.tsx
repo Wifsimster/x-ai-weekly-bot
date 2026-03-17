@@ -20,26 +20,26 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 import { MarkdownContent } from '@/components/markdown-content';
+import { toast } from 'sonner';
 import type { StatusResponse } from '@/types';
 
 export function DashboardPage() {
   const { data: status, loading, refetch } = useApi<StatusResponse>('/api/status');
   const [triggering, setTriggering] = useState(false);
-  const [triggerMessage, setTriggerMessage] = useState<{
-    type: 'success' | 'error';
-    text: string;
-  } | null>(null);
 
   const handleTrigger = async () => {
     setTriggering(true);
-    setTriggerMessage(null);
     try {
       const res = await fetch('/api/trigger', { method: 'POST' });
       const data = await res.json();
-      setTriggerMessage({ type: data.success ? 'success' : 'error', text: data.message });
+      if (data.success) {
+        toast.success(data.message);
+      } else {
+        toast.error(data.message);
+      }
       setTimeout(() => refetch(), 1000);
     } catch {
-      setTriggerMessage({ type: 'error', text: 'Erreur lors du déclenchement du run.' });
+      toast.error('Erreur lors du declenchement du run.');
     } finally {
       setTriggering(false);
     }
@@ -80,11 +80,11 @@ export function DashboardPage() {
 
       {cookiesExpired && (
         <Alert variant="destructive">
-          <AlertTitle>Session cookies expirés</AlertTitle>
+          <AlertTitle>Session cookies expires</AlertTitle>
           <AlertDescription>
-            Vos cookies de session X semblent avoir expiré.{' '}
+            Vos cookies de session X semblent avoir expire.{' '}
             <a href="/settings" className="underline font-medium">
-              Mettez-les à jour dans Paramètres
+              Mettez-les a jour dans Parametres
             </a>
             .
           </AlertDescription>
@@ -130,7 +130,7 @@ export function DashboardPage() {
 
             {lastRun.summary && (
               <div className="rounded-lg border border-l-4 border-l-primary/30 p-4">
-                <p className="font-semibold mb-2">Synthèse de la veille</p>
+                <p className="font-semibold mb-2">Synthese de la veille</p>
                 <MarkdownContent content={lastRun.summary} className="text-sm" />
               </div>
             )}
@@ -150,15 +150,9 @@ export function DashboardPage() {
       {!lastRun && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Aucun run enregistré.
+            Aucun run enregistre.
           </CardContent>
         </Card>
-      )}
-
-      {triggerMessage && (
-        <Alert variant={triggerMessage.type === 'success' ? 'success' : 'destructive'}>
-          <AlertDescription>{triggerMessage.text}</AlertDescription>
-        </Alert>
       )}
 
       <AlertDialog>
@@ -171,8 +165,8 @@ export function DashboardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Lancer un run maintenant ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action va déclencher un scraping de votre timeline X et générer un résumé IA des
-              actualités.
+              Cette action va declencher un scraping de votre timeline X et generer un resume IA des
+              actualites.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

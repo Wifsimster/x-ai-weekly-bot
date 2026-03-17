@@ -40,7 +40,7 @@ export function SetupPage() {
         {credentials.map((cred) => (
           <div
             key={cred.key}
-            className={`h-1.5 flex-1 rounded-full ${cred.configured ? "bg-emerald-500" : "bg-red-500"}`}
+            className={`h-1.5 flex-1 rounded-full ${cred.configured ? "bg-success" : "bg-destructive"}`}
           />
         ))}
       </div>
