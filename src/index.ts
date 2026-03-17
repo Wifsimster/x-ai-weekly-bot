@@ -6,8 +6,8 @@ import { getCurrentRunId, updateRunStats } from './run-service.js';
 import { getUnpublishedTweets, markTweetsAsUsed, storeTweets } from './tweet-store.js';
 import { getTodayDateParis } from './date-utils.js';
 
-export async function run(config: Config) {
-  const collectionDate = getTodayDateParis();
+export async function run(config: Config, overrideCollectionDate?: string) {
+  const collectionDate = overrideCollectionDate ?? getTodayDateParis();
 
   logger.info('Starting daily summary (publish)', {
     username: config.X_USERNAME,
@@ -16,11 +16,13 @@ export async function run(config: Config) {
 
   const runId = getCurrentRunId();
 
-  // 1. Do a final collection sweep before summarizing
-  const xClient = createXClient(config);
-  const liveTweets = await xClient.fetchRecentTweets();
-  if (liveTweets.length > 0) {
-    storeTweets(liveTweets, collectionDate);
+  // 1. Do a final collection sweep before summarizing (skip for historical re-runs)
+  if (!overrideCollectionDate) {
+    const xClient = createXClient(config);
+    const liveTweets = await xClient.fetchRecentTweets();
+    if (liveTweets.length > 0) {
+      storeTweets(liveTweets, collectionDate);
+    }
   }
 
   // 2. Read all accumulated tweets for today

@@ -74,6 +74,25 @@ export function markTweetsAsUsed(tweetIds: string[], runId: number): void {
 }
 
 /**
+ * Releases tweets associated with a run, making them available for re-processing.
+ */
+export function releaseTweetsForRun(runId: number): void {
+  const db = getDb();
+  db.prepare('UPDATE tweets SET used_in_run_id = NULL WHERE used_in_run_id = ?').run(runId);
+}
+
+/**
+ * Returns the collection date(s) for tweets linked to a given run.
+ */
+export function getCollectionDateForRun(runId: number): string | undefined {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT DISTINCT collection_date FROM tweets WHERE used_in_run_id = ? LIMIT 1')
+    .get(runId) as { collection_date: string } | undefined;
+  return row?.collection_date;
+}
+
+/**
  * Returns the count of tweets collected today that are not yet used.
  */
 export function countUnpublishedTweets(collectionDate: string): number {

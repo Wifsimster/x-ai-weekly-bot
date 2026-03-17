@@ -61,6 +61,24 @@ export function listMonthlySummaries(limit = 12): MonthlySummaryRecord[] {
   ).all(limit) as MonthlySummaryRecord[];
 }
 
+/**
+ * Deletes any monthly summaries that reference the given run ID in source_run_ids.
+ */
+export function deleteMonthlySummariesReferencingRun(runId: number): void {
+  const db = getDb();
+  const all = db.prepare('SELECT id, source_run_ids FROM monthly_summaries').all() as {
+    id: number;
+    source_run_ids: string;
+  }[];
+  for (const row of all) {
+    const ids: number[] = JSON.parse(row.source_run_ids);
+    if (ids.includes(runId)) {
+      db.prepare('DELETE FROM monthly_summaries WHERE id = ?').run(row.id);
+      logger.info('Deleted stale monthly summary', { monthlySummaryId: row.id, deletedRunId: runId });
+    }
+  }
+}
+
 export function getAvailableMonths(): { year: number; month: number; run_count: number }[] {
   const db = getDb();
   return db.prepare(
