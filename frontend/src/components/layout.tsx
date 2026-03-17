@@ -126,7 +126,7 @@ export function Layout() {
         <div className="container mx-auto px-4">
           <p className="text-xs text-muted-foreground">
             X AI Weekly Bot v{versionInfo?.version || 'dev'}
-            {versionInfo?.buildDate && <> — Build {versionInfo.buildDate}</>}
+            {versionInfo?.buildDate && <> — Build {new Date(versionInfo.buildDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>}
           </p>
         </div>
       </footer>

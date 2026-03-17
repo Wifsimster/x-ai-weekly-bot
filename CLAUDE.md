@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-X AI Weekly Bot — a full-stack TypeScript application that scrapes an X (Twitter) timeline, filters AI-related content using GitHub Models, and publishes weekly summary threads. Includes a React web dashboard for configuration and monitoring.
+X AI Weekly Bot — a full-stack TypeScript application that scrapes an X (Twitter) timeline hourly, accumulates tweets in SQLite, and publishes a daily AI-generated summary via Discord at 07:30. Includes a React web dashboard for configuration and monitoring.
 
 ## Tech Stack
 
@@ -19,28 +19,35 @@ X AI Weekly Bot — a full-stack TypeScript application that scrapes an X (Twitt
 
 ```
 src/                        # Backend TypeScript
-├── scheduler.ts            # Entry point — boots web server + cron
-├── index.ts                # One-shot run (for testing)
+├── scheduler.ts            # Entry point — boots web server + both crons
+├── index.ts                # Publish run (reads accumulated tweets + AI summary)
 ├── server.ts               # Hono REST API
 ├── config.ts               # Zod config validation
-├── db.ts                   # SQLite schema + initialization
-├── run-service.ts          # Run orchestration + DB tracking
+├── db.ts                   # SQLite schema + initialization (runs, tweets, settings, monthly_summaries)
+├── run-service.ts          # Run orchestration + DB tracking (separate collect/publish guards)
+├── collect-service.ts      # Hourly tweet collection (scrape + store, no AI)
+├── tweet-store.ts          # Tweet persistence, dedup, retrieval
+├── date-utils.ts           # Paris timezone date utility
 ├── ai-filter.ts            # GitHub Models AI integration
 ├── x-client.ts             # X client factory
+├── cron-manager.ts         # Multi-cron manager (collect + publish)
 ├── settings-service.ts     # DB-backed settings persistence
+├── monthly-summary-service.ts # Monthly summary aggregation
 ├── ports.ts                # Interface definitions (Tweet, TweetReader)
 ├── logger.ts               # JSON structured logging
 └── adapters/
-    └── scraper-reader.ts   # X GraphQL web scraper
+    ├── scraper-reader.ts   # X GraphQL web scraper
+    └── discord-notifier.ts # Discord webhook notifications
 
 frontend/                   # React SPA
 ├── src/
 │   ├── App.tsx             # Route definitions
-│   ├── pages/              # Dashboard, Runs, Settings, Setup
+│   ├── pages/              # Dashboard, Runs, Settings, Setup, Summaries
 │   ├── components/         # Radix/shadcn-ui components
 │   └── hooks/use-api.ts    # API fetching hook
 └── vite.config.ts
 
+docs/adr/                   # Architecture Decision Records
 .github/workflows/release.yml  # CI/CD pipeline
 deploy/deploy.sh               # Production deploy script
 Dockerfile                     # Multi-stage build
@@ -61,10 +68,12 @@ npm run start        # Production start (scheduler)
 
 ## Architecture Patterns
 
+- **Two-phase pipeline:** Hourly collection (scrape + store in `tweets` table) and daily publish (AI summary + Discord notification) — see ADR-0001
 - **Config merging:** Environment variables are the base; DB settings override them (`tryLoadConfigWithOverrides`)
 - **Boot vs full config:** `loadBootConfig()` for web server startup (minimal), `loadConfig()` for full run
 - **Run tracking:** Every scrape/filter/publish cycle is a "run" tracked in SQLite with status, metadata, and summary
-- **Concurrency guard:** Only one run at a time (checked in `run-service.ts`)
+- **Separate concurrency guards:** `publishRunning` and `collectRunning` flags in `run-service.ts` — collection never blocks publication
+- **Tweet deduplication:** `INSERT OR IGNORE` on tweet ID primary key in `tweets` table
 - **Adapter pattern:** `TweetReader` interface in `ports.ts`, implemented by `scraper-reader.ts`
 - **Frontend served by backend:** Hono serves the built React SPA via `serveStatic`
 
@@ -92,3 +101,5 @@ npm run start        # Production start (scheduler)
 - The web dashboard works in "setup mode" even without credentials configured
 - SQLite database lives in `./data/bot.db` (Docker volume at `/app/data`)
 - Docker container runs as non-root user `bot` (uid 1001)
+- Two cron schedules: `COLLECT_CRON_SCHEDULE` (default `0 * * * *`) and `CRON_SCHEDULE` (default `30 7 * * *`)
+- All dates use Europe/Paris timezone for consistency

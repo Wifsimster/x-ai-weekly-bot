@@ -2,7 +2,7 @@
 
 ## Project Summary
 
-X AI Weekly Bot est une application full-stack TypeScript qui scrape une timeline X (Twitter), filtre les contenus liés à l'IA via GitHub Models, et publie un résumé hebdomadaire sous forme de thread. Le projet inclut un tableau de bord React pour la configuration et le monitoring.
+X AI Weekly Bot est une application full-stack TypeScript qui scrape une timeline X (Twitter) toutes les heures, accumule les tweets dans SQLite, et publie un resume quotidien genere par IA via Discord a 07:30. Le projet inclut un tableau de bord React pour la configuration et le monitoring.
 
 ## Essential Commands
 
@@ -19,11 +19,16 @@ npm run format       # Prettier
 
 - `src/` — Backend TypeScript (Hono server, scraper, AI filter, DB)
 - `frontend/` — React 19 SPA (dashboard, settings, setup wizard)
-- `src/scheduler.ts` — Production entry point (web server + cron)
+- `src/scheduler.ts` — Production entry point (web server + both crons)
 - `src/server.ts` — REST API endpoints
+- `src/collect-service.ts` — Hourly tweet collection (no AI)
+- `src/tweet-store.ts` — Tweet storage, dedup, retrieval
+- `src/index.ts` — Publish run (reads accumulated tweets + AI summary)
+- `src/cron-manager.ts` — Multi-cron manager (collect + publish)
 - `src/adapters/scraper-reader.ts` — X GraphQL web scraper
 - `src/config.ts` — Zod-based config validation
 - `src/db.ts` — SQLite schema and initialization
+- `docs/adr/` — Architecture Decision Records
 
 ## Code Conventions
 
@@ -49,3 +54,5 @@ npm run format       # Prettier
 - X scraping uses session cookies, not the official API — handle auth_token and ct0 carefully
 - GraphQL IDs change periodically — the scraper handles this automatically
 - The web dashboard must work in "setup mode" (no credentials) — don't break the boot path
+- Two-phase architecture: hourly collection (no AI) + daily publish (AI summary at 07:30) — see ADR-0001
+- Separate concurrency guards for collect and publish runs
