@@ -13,7 +13,7 @@ export function StatCard({
   return (
     <Card className="border-l-4 border-l-primary/20">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
           {Icon && <Icon className="h-4 w-4 text-primary" />}
           {title}
         </CardTitle>
