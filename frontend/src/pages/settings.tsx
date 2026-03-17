@@ -30,9 +30,9 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Parametres</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Paramètres</h1>
         <p className="text-muted-foreground">
-          Configuration du bot — les valeurs personnalisees prennent le pas sur les variables
+          Configuration du bot — les valeurs personnalisées prennent le pas sur les variables
           d'environnement
         </p>
       </div>
@@ -41,9 +41,9 @@ export function SettingsPage() {
       {!credentialInfo.hasAuth && (
         <Alert variant="warning">
           <AlertDescription>
-            <strong>Dashboard non protege</strong> — Configurez la variable d'environnement{' '}
-            <code className="font-mono text-xs">ADMIN_PASSWORD</code> pour securiser l'acces aux
-            cookies de session et aux parametres sensibles.
+            <strong>Dashboard non protégé</strong> — Configurez la variable d'environnement{' '}
+            <code className="font-mono text-xs">ADMIN_PASSWORD</code> pour sécuriser l'accès aux
+            cookies de session et aux paramètres sensibles.
           </AlertDescription>
         </Alert>
       )}

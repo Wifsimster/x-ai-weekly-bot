@@ -28,8 +28,8 @@ import { toast } from "sonner";
 import type { RunRecord, MonthlySummaryRecord, AvailableMonth, ConfigResponse } from "@/types";
 
 const MONTH_NAMES = [
-  "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
 function formatDate(dateStr: string): string {
@@ -41,8 +41,8 @@ export function SummariesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Syntheses</h1>
-        <p className="text-muted-foreground">Historique des resumes IA quotidiens et mensuels</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Synthèses</h1>
+        <p className="text-muted-foreground">Historique des résumés IA quotidiens et mensuels</p>
       </div>
 
       <Tabs defaultValue="daily">
@@ -123,7 +123,7 @@ function DailyView() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher dans les resumes..."
+            placeholder="Rechercher dans les résumés..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="pl-9"
@@ -142,7 +142,7 @@ function DailyView() {
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={handleResetFilters}>
             <RotateCcw className="h-4 w-4 mr-1" />
-            Reinitialiser
+            Réinitialiser
           </Button>
         )}
       </div>
@@ -151,11 +151,11 @@ function DailyView() {
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             {hasFilters
-              ? "Aucun resume ne correspond aux filtres."
-              : "Aucun resume quotidien disponible."}
+              ? "Aucun résumé ne correspond aux filtres."
+              : "Aucun résumé quotidien disponible."}
             {hasFilters && (
               <Button variant="ghost" size="sm" className="ml-2" onClick={handleResetFilters}>
-                Reinitialiser les filtres
+                Réinitialiser les filtres
               </Button>
             )}
           </CardContent>
@@ -176,7 +176,7 @@ function DailyView() {
                 disabled={page === 0}
                 onClick={() => setPage((p) => p - 1)}
               >
-                Precedent
+                Précédent
               </Button>
               <span className="text-sm text-muted-foreground">
                 Page {page + 1} / {totalPages}
@@ -215,13 +215,13 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
       });
       const data = await res.json();
       if (data.success) {
-        toast.success("Resume envoye sur Discord");
+        toast.success("Résumé envoyé sur Discord");
         setNotifStatus("sent");
       } else {
-        toast.error("Echec de l'envoi sur Discord");
+        toast.error("Échec de l'envoi sur Discord");
       }
     } catch {
-      toast.error("Erreur reseau lors de l'envoi");
+      toast.error("Erreur réseau lors de l'envoi");
     } finally {
       setSending(false);
     }
@@ -302,7 +302,7 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
               disabled={busy}
               onClick={handleRerun}
               className="h-7 w-7 p-0"
-              title="Regenerer le resume"
+              title="Régénérer le résumé"
             >
               {rerunning ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -335,7 +335,7 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Envoyer ce resume sur Discord</TooltipContent>
+                <TooltipContent>Envoyer ce résumé sur Discord</TooltipContent>
               </Tooltip>
             )}
             <AlertDialog>
@@ -345,7 +345,7 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
                   size="sm"
                   disabled={busy}
                   className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                  title="Supprimer le resume"
+                  title="Supprimer le résumé"
                 >
                   {deleting ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -356,10 +356,10 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Supprimer ce resume ?</AlertDialogTitle>
+                  <AlertDialogTitle>Supprimer ce résumé ?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Cette action est irreversible. Le resume sera definitivement supprime
-                    et les tweets associes seront liberes pour une eventuelle regeneration.
+                    Cette action est irréversible. Le résumé sera définitivement supprimé
+                    et les tweets associés seront libérés pour une éventuelle régénération.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -389,7 +389,7 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
           className="mt-2 text-primary"
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded ? "Reduire" : "Lire la suite"}
+          {expanded ? "Réduire" : "Lire la suite"}
         </Button>
       </CardContent>
     </Card>
@@ -426,13 +426,13 @@ function MonthlyView() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success("Resume mensuel genere avec succes");
+        toast.success("Résumé mensuel généré avec succès");
         refetch();
       } else {
-        toast.error(data.message || "Erreur lors de la generation");
+        toast.error(data.message || "Erreur lors de la génération");
       }
     } catch {
-      toast.error("Erreur reseau");
+      toast.error("Erreur réseau");
     } finally {
       setGenerating(false);
     }
@@ -444,16 +444,16 @@ function MonthlyView() {
         <CardHeader>
           <div className="font-semibold flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
-            Generer un resume mensuel
+            Générer un résumé mensuel
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <label className="text-sm text-muted-foreground">Annee</label>
+              <label className="text-sm text-muted-foreground">Année</label>
               <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setSelectedMonth(""); }}>
                 <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Annee" />
+                  <SelectValue placeholder="Année" />
                 </SelectTrigger>
                 <SelectContent>
                   {years.map((y) => (
@@ -482,7 +482,7 @@ function MonthlyView() {
               disabled={!selectedYear || !selectedMonth || generating}
             >
               {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {generating ? "Generation..." : "Generer"}
+              {generating ? "Génération..." : "Générer"}
             </Button>
           </div>
         </CardContent>
@@ -490,7 +490,7 @@ function MonthlyView() {
 
       {existingSummaries && existingSummaries.length > 0 ? (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Resumes mensuels generes</h2>
+          <h2 className="text-lg font-semibold">Résumés mensuels générés</h2>
           {existingSummaries.map((ms) => (
             <MonthlySummaryCard key={ms.id} summary={ms} />
           ))}
@@ -498,7 +498,7 @@ function MonthlyView() {
       ) : (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Aucun resume mensuel genere. Selectionnez un mois ci-dessus pour en creer un.
+            Aucun résumé mensuel généré. Sélectionnez un mois ci-dessus pour en créer un.
           </CardContent>
         </Card>
       )}
@@ -539,7 +539,7 @@ function MonthlySummaryCard({ summary }: { summary: MonthlySummaryRecord }) {
           className="mt-2 text-primary"
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded ? "Reduire" : "Lire la suite"}
+          {expanded ? "Réduire" : "Lire la suite"}
         </Button>
       </CardContent>
     </Card>

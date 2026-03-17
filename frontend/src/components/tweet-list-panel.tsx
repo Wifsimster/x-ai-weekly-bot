@@ -39,7 +39,7 @@ export function TweetListPanel({ runId, tweetCount }: { runId: number; tweetCoun
         <p>Tweets non disponibles pour ce run.</p>
         {tweetCount > 0 && (
           <p className="text-xs mt-1">
-            Ce run date d'avant le suivi detaille des tweets.
+            Ce run date d'avant le suivi détaillé des tweets.
           </p>
         )}
       </div>
@@ -49,7 +49,7 @@ export function TweetListPanel({ runId, tweetCount }: { runId: number; tweetCoun
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-        <span>{data.total} tweet{data.total > 1 ? "s" : ""} utilise{data.total > 1 ? "s" : ""}</span>
+        <span>{data.total} tweet{data.total > 1 ? "s" : ""} utilisé{data.total > 1 ? "s" : ""}</span>
       </div>
 
       <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-12rem)] pr-1">

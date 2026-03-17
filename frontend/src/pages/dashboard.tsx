@@ -39,7 +39,7 @@ export function DashboardPage() {
       }
       setTimeout(() => refetch(), 1000);
     } catch {
-      toast.error('Erreur lors du declenchement du run.');
+      toast.error('Erreur lors du déclenchement du run.');
     } finally {
       setTriggering(false);
     }
@@ -80,11 +80,11 @@ export function DashboardPage() {
 
       {cookiesExpired && (
         <Alert variant="destructive">
-          <AlertTitle>Session cookies expires</AlertTitle>
+          <AlertTitle>Session cookies expirés</AlertTitle>
           <AlertDescription>
-            Vos cookies de session X semblent avoir expire.{' '}
+            Vos cookies de session X semblent avoir expiré.{' '}
             <a href="/settings" className="underline font-medium">
-              Mettez-les a jour dans Parametres
+              Mettez-les à jour dans Paramètres
             </a>
             .
           </AlertDescription>
@@ -130,7 +130,7 @@ export function DashboardPage() {
 
             {lastRun.summary && (
               <div className="rounded-lg border border-l-4 border-l-primary/30 p-4">
-                <p className="font-semibold mb-2">Synthese de la veille</p>
+                <p className="font-semibold mb-2">Synthèse de la veille</p>
                 <MarkdownContent content={lastRun.summary} className="text-sm" />
               </div>
             )}
@@ -150,7 +150,7 @@ export function DashboardPage() {
       {!lastRun && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Aucun run enregistre.
+            Aucun run enregistré.
           </CardContent>
         </Card>
       )}
@@ -165,8 +165,8 @@ export function DashboardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Lancer un run maintenant ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action va declencher un scraping de votre timeline X et generer un resume IA des
-              actualites.
+              Cette action va déclencher un scraping de votre timeline X et générer un résumé IA des
+              actualités.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
