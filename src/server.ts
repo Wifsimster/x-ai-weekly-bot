@@ -313,8 +313,15 @@ export function startServer(
     app.get('/api/summaries', (c) => {
       const limit = Number(c.req.query('limit') || '20');
       const offset = Number(c.req.query('offset') || '0');
-      const summaries = getSuccessfulSummaries(limit, offset);
-      const total = countSuccessfulSummaries();
+      const month = c.req.query('month'); // YYYY-MM format
+      const search = c.req.query('search');
+      const filters = {
+        ...(month && /^\d{4}-\d{2}$/.test(month) ? { month } : {}),
+        ...(search && search.trim() ? { search: search.trim() } : {}),
+      };
+      const hasFilters = Object.keys(filters).length > 0;
+      const summaries = getSuccessfulSummaries(limit, offset, hasFilters ? filters : undefined);
+      const total = countSuccessfulSummaries(hasFilters ? filters : undefined);
       return c.json({ summaries, total });
     });
 

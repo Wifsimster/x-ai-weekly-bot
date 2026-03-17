@@ -192,20 +192,62 @@ export function getCurrentRunId(): number | undefined {
   return row?.id;
 }
 
-export function getSuccessfulSummaries(limit = 20, offset = 0): RunRecord[] {
-  const db = getDb();
-  return db
-    .prepare(
-      `SELECT * FROM runs WHERE status = 'success' AND summary IS NOT NULL ORDER BY started_at DESC LIMIT ? OFFSET ?`,
-    )
-    .all(limit, offset) as RunRecord[];
+export interface SummaryFilters {
+  month?: string; // YYYY-MM format
+  search?: string;
 }
 
-export function countSuccessfulSummaries(): number {
+export function getSuccessfulSummaries(limit = 20, offset = 0, filters?: SummaryFilters): RunRecord[] {
   const db = getDb();
+  const clauses = [`status = 'success'`, `summary IS NOT NULL`];
+  const params: unknown[] = [];
+
+  if (filters?.month) {
+    const [year, mon] = filters.month.split('-').map(Number);
+    const from = `${year}-${String(mon).padStart(2, '0')}-01`;
+    const toMonth = mon === 12 ? 1 : mon + 1;
+    const toYear = mon === 12 ? year + 1 : year;
+    const to = `${toYear}-${String(toMonth).padStart(2, '0')}-01`;
+    clauses.push(`started_at >= ?`, `started_at < ?`);
+    params.push(from, to);
+  }
+
+  if (filters?.search) {
+    clauses.push(`summary LIKE ?`);
+    params.push(`%${filters.search}%`);
+  }
+
+  params.push(limit, offset);
+  return db
+    .prepare(
+      `SELECT * FROM runs WHERE ${clauses.join(' AND ')} ORDER BY started_at DESC LIMIT ? OFFSET ?`,
+    )
+    .all(...params) as RunRecord[];
+}
+
+export function countSuccessfulSummaries(filters?: SummaryFilters): number {
+  const db = getDb();
+  const clauses = [`status = 'success'`, `summary IS NOT NULL`];
+  const params: unknown[] = [];
+
+  if (filters?.month) {
+    const [year, mon] = filters.month.split('-').map(Number);
+    const from = `${year}-${String(mon).padStart(2, '0')}-01`;
+    const toMonth = mon === 12 ? 1 : mon + 1;
+    const toYear = mon === 12 ? year + 1 : year;
+    const to = `${toYear}-${String(toMonth).padStart(2, '0')}-01`;
+    clauses.push(`started_at >= ?`, `started_at < ?`);
+    params.push(from, to);
+  }
+
+  if (filters?.search) {
+    clauses.push(`summary LIKE ?`);
+    params.push(`%${filters.search}%`);
+  }
+
   const row = db
-    .prepare(`SELECT COUNT(*) as count FROM runs WHERE status = 'success' AND summary IS NOT NULL`)
-    .get() as { count: number };
+    .prepare(`SELECT COUNT(*) as count FROM runs WHERE ${clauses.join(' AND ')}`)
+    .get(...params) as { count: number };
   return row.count;
 }
 
