@@ -77,7 +77,7 @@ export function CookiesCard({ credentialInfo, onSaved }: CookiesCardProps) {
                   <code className="font-mono">{credentialInfo.authTokenMasked}</code>
                 </>
               ) : (
-                'Non configure'
+                'Non configuré'
               )}
             </p>
           </div>
@@ -97,7 +97,7 @@ export function CookiesCard({ credentialInfo, onSaved }: CookiesCardProps) {
                   <code className="font-mono">{credentialInfo.csrfTokenMasked}</code>
                 </>
               ) : (
-                'Non configure'
+                'Non configuré'
               )}
             </p>
           </div>
@@ -106,7 +106,7 @@ export function CookiesCard({ credentialInfo, onSaved }: CookiesCardProps) {
               {saving ? 'Validation...' : 'Valider et sauvegarder'}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Les cookies seront testes contre l'API X avant d'etre sauvegardes.
+              Les cookies seront testés contre l'API X avant d'être sauvegardés.
             </p>
           </div>
         </form>

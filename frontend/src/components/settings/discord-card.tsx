@@ -62,7 +62,7 @@ export function DiscordCard({ credentialInfo, onSaved }: DiscordCardProps) {
           <div>
             <div className="font-semibold">Notifications Discord</div>
             <p className="text-sm text-muted-foreground">
-              Recevez automatiquement les resumes quotidiens sur un salon Discord via webhook.
+              Recevez automatiquement les résumés quotidiens sur un salon Discord via webhook.
             </p>
           </div>
           <StatusDot configured={!!credentialInfo.discordWebhookMasked} />
@@ -88,7 +88,7 @@ export function DiscordCard({ credentialInfo, onSaved }: DiscordCardProps) {
                   <code className="font-mono">{credentialInfo.discordWebhookMasked}</code>
                 </>
               ) : (
-                'Non configure'
+                'Non configuré'
               )}
             </p>
           </div>

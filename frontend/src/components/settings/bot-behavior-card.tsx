@@ -22,19 +22,19 @@ interface SettingField {
 }
 
 const BOT_FIELDS: SettingField[] = [
-  { key: 'AI_MODEL', label: 'Modele IA', type: 'text' },
-  { key: 'TWEETS_LOOKBACK_DAYS', label: 'Jours a analyser', type: 'number' },
+  { key: 'AI_MODEL', label: 'Modèle IA', type: 'text' },
+  { key: 'TWEETS_LOOKBACK_DAYS', label: 'Jours à analyser', type: 'number' },
   { key: 'DRY_RUN', label: 'Mode test (dry run)', type: 'select', options: ['false', 'true'] },
 ];
 
 const CRON_PRESETS = [
-  { label: 'Tous les jours a 07h30', value: '30 7 * * *' },
-  { label: 'Tous les jours a 08h00', value: '0 8 * * *' },
-  { label: 'Tous les jours a 09h00', value: '0 9 * * *' },
-  { label: 'Tous les jours a 12h00', value: '0 12 * * *' },
-  { label: 'Tous les jours a 18h00', value: '0 18 * * *' },
-  { label: 'Du lundi au vendredi a 08h00', value: '0 8 * * 1-5' },
-  { label: 'Chaque lundi a 09h00', value: '0 9 * * 1' },
+  { label: 'Tous les jours à 07h30', value: '30 7 * * *' },
+  { label: 'Tous les jours à 08h00', value: '0 8 * * *' },
+  { label: 'Tous les jours à 09h00', value: '0 9 * * *' },
+  { label: 'Tous les jours à 12h00', value: '0 12 * * *' },
+  { label: 'Tous les jours à 18h00', value: '0 18 * * *' },
+  { label: 'Du lundi au vendredi à 08h00', value: '0 8 * * 1-5' },
+  { label: 'Chaque lundi à 09h00', value: '0 9 * * 1' },
   { label: 'Toutes les 6 heures', value: '0 */6 * * *' },
   { label: 'Toutes les 12 heures', value: '0 */12 * * *' },
 ];
@@ -100,7 +100,7 @@ export function BotBehaviorCard({ envDefaults, onSaved }: BotBehaviorCardProps) 
         onSaved();
       }
     } catch {
-      setFlashCron({ type: 'error', message: 'Erreur lors de la mise a jour.' });
+      setFlashCron({ type: 'error', message: 'Erreur lors de la mise à jour.' });
     } finally {
       setSavingCron(false);
     }
@@ -199,7 +199,7 @@ export function BotBehaviorCard({ envDefaults, onSaved }: BotBehaviorCardProps) 
                       {preset.label}
                     </SelectItem>
                   ))}
-                  <SelectItem value="__custom__">Personnalise...</SelectItem>
+                  <SelectItem value="__custom__">Personnalisé...</SelectItem>
                 </SelectContent>
               </Select>
 

@@ -60,20 +60,20 @@ export function Layout() {
               Dashboard
             </NavLink>
             <NavLink to="/summaries" className={navLinkClass}>
-              Syntheses
+              Synthèses
             </NavLink>
             <NavLink to="/runs" className={navLinkClass}>
               Historique
             </NavLink>
             <NavLink to="/settings" className={navLinkClass}>
-              Parametres
+              Paramètres
             </NavLink>
             <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
               <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Theme">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="system">Systeme</SelectItem>
+                <SelectItem value="system">Système</SelectItem>
                 <SelectItem value="light">Clair</SelectItem>
                 <SelectItem value="dark">Sombre</SelectItem>
               </SelectContent>
@@ -102,13 +102,13 @@ export function Layout() {
                   Dashboard
                 </NavLink>
                 <NavLink to="/summaries" className={mobileNavLinkClass}>
-                  Syntheses
+                  Synthèses
                 </NavLink>
                 <NavLink to="/runs" className={mobileNavLinkClass}>
                   Historique
                 </NavLink>
                 <NavLink to="/settings" className={mobileNavLinkClass}>
-                  Parametres
+                  Paramètres
                 </NavLink>
                 <div className="pt-4 border-t border-primary/10">
                   <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
@@ -116,7 +116,7 @@ export function Layout() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="system">Systeme</SelectItem>
+                      <SelectItem value="system">Système</SelectItem>
                       <SelectItem value="light">Clair</SelectItem>
                       <SelectItem value="dark">Sombre</SelectItem>
                     </SelectContent>

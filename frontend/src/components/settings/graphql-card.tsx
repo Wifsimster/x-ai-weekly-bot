@@ -25,7 +25,7 @@ export function GraphqlCard({ envDefaults, onSaved }: GraphqlCardProps) {
       setFlash({ type: data.success ? 'success' : 'error', message: data.message });
       if (data.success) onSaved();
     } catch {
-      setFlash({ type: 'error', message: 'Erreur lors de la detection.' });
+      setFlash({ type: 'error', message: 'Erreur lors de la détection.' });
     } finally {
       setDetecting(false);
     }
@@ -64,8 +64,8 @@ export function GraphqlCard({ envDefaults, onSaved }: GraphqlCardProps) {
       <CardHeader>
         <div className="font-semibold">IDs GraphQL X</div>
         <p className="text-sm text-muted-foreground">
-          Les IDs GraphQL changent quand X deploie une nouvelle version. Utilisez la detection
-          automatique ou modifiez-les manuellement si necessaire.
+          Les IDs GraphQL changent quand X déploie une nouvelle version. Utilisez la détection
+          automatique ou modifiez-les manuellement si nécessaire.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -75,20 +75,20 @@ export function GraphqlCard({ envDefaults, onSaved }: GraphqlCardProps) {
           <div>
             <p className="text-xs text-muted-foreground font-mono">UserByScreenName</p>
             <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
-              {envDefaults['X_GQL_USER_BY_SCREEN_NAME_ID'] || 'Non detecte'}
+              {envDefaults['X_GQL_USER_BY_SCREEN_NAME_ID'] || 'Non détecté'}
             </code>
           </div>
           <div>
             <p className="text-xs text-muted-foreground font-mono">HomeLatestTimeline</p>
             <code className="rounded bg-muted px-2 py-1 text-sm font-mono">
-              {envDefaults['X_GQL_HOME_TIMELINE_ID'] || 'Non detecte'}
+              {envDefaults['X_GQL_HOME_TIMELINE_ID'] || 'Non détecté'}
             </code>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={handleDetect} disabled={detecting}>
-            {detecting ? 'Detection en cours...' : 'Detecter les IDs GraphQL'}
+            {detecting ? 'Détection en cours...' : 'Détecter les IDs GraphQL'}
           </Button>
           <Button
             type="button"
