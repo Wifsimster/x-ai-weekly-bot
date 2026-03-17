@@ -68,3 +68,10 @@ export interface ApiMessage {
   success: boolean;
   message: string;
 }
+
+export interface TweetRecord {
+  id: string;
+  text: string;
+  createdAt: string;
+  urls: string[];
+}

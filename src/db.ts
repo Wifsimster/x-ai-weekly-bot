@@ -82,6 +82,7 @@ const MIGRATIONS = [
     used_in_run_id INTEGER
   )`,
   `CREATE INDEX IF NOT EXISTS idx_tweets_collection_date ON tweets(collection_date, used_in_run_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_tweets_used_in_run_id ON tweets(used_in_run_id)`,
 ];
 
 let db: Database.Database | null = null;

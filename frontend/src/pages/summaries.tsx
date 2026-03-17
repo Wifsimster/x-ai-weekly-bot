@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { TweetListPanel } from "@/components/tweet-list-panel";
 import { MarkdownContent } from "@/components/markdown-content";
 import {
   AlertDialog,
@@ -19,7 +21,7 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
-import { Calendar, TrendingUp, Loader2, Send, Check, X, Search, RotateCcw, Trash2, RefreshCw } from "lucide-react";
+import { Calendar, TrendingUp, Loader2, Send, Check, X, Search, RotateCcw, Trash2, RefreshCw, MessageSquare } from "lucide-react";
 import type { RunRecord, MonthlySummaryRecord, AvailableMonth, ConfigResponse } from "@/types";
 
 const MONTH_NAMES = [
@@ -281,7 +283,27 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
             {notifStatus === "sent" && (
               <Badge variant="secondary" className="text-green-600 dark:text-green-400">Discord</Badge>
             )}
-            <Badge variant="secondary">{run.tweets_fetched} tweets</Badge>
+            {run.tweets_fetched > 0 ? (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="cursor-pointer" aria-label="Voir les tweets">
+                    <Badge variant="secondary" className="hover:bg-secondary/80 transition-colors">
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      {run.tweets_fetched} tweets
+                    </Badge>
+                  </button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>{run.tweets_fetched} tweets - Run #{run.id}</SheetTitle>
+                    <SheetDescription>{formatDate(run.started_at)}</SheetDescription>
+                  </SheetHeader>
+                  <TweetListPanel runId={run.id} tweetCount={run.tweets_fetched} />
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <Badge variant="secondary">{run.tweets_fetched} tweets</Badge>
+            )}
             <Badge variant="outline">Run #{run.id}</Badge>
             <Button
               variant="outline"

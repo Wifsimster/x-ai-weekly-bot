@@ -38,7 +38,7 @@ import {
   maskCredential,
 } from './settings-service.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
-import { countUnpublishedTweets, countTweetsForDate } from './tweet-store.js';
+import { countUnpublishedTweets, countTweetsForDate, getTweetsByRunId } from './tweet-store.js';
 import { getTodayDateParis } from './date-utils.js';
 import { validateXCookies, detectGqlIds, DEFAULT_GQL_IDS } from './adapters/scraper-reader.js';
 import { testDiscordWebhook, sendDiscordNotification } from './adapters/discord-notifier.js';
@@ -565,6 +565,23 @@ export function startServer(
     app.delete('/api/discord-webhook', (c) => {
       deleteSetting('DISCORD_WEBHOOK_URL');
       return c.json({ success: true, message: 'Webhook Discord supprimé.' });
+    });
+
+    app.get('/api/runs/:id/tweets', (c) => {
+      const runId = Number(c.req.param('id'));
+      if (!runId || runId < 1) {
+        return c.json({ success: false, message: 'ID de run invalide.' }, 400);
+      }
+
+      const targetRun = getRunById(runId);
+      if (!targetRun) {
+        return c.json({ success: false, message: 'Run introuvable.' }, 404);
+      }
+
+      const limit = Math.min(Number(c.req.query('limit') || '50'), 200);
+      const offset = Number(c.req.query('offset') || '0');
+      const result = getTweetsByRunId(runId, limit, offset);
+      return c.json(result);
     });
 
     app.post('/api/runs/:id/send-discord', async (c) => {
