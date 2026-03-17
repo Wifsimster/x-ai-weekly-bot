@@ -6,9 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { StatCard } from "@/components/stat-card";
 import { MarkdownContent } from "@/components/markdown-content";
-import { BookOpen, Calendar, TrendingUp, Loader2, Send, Check, X, Search, RotateCcw } from "lucide-react";
+import { Calendar, TrendingUp, Loader2, Send, Check, X, Search, RotateCcw } from "lucide-react";
 import type { RunRecord, MonthlySummaryRecord, AvailableMonth, ConfigResponse } from "@/types";
 
 const MONTH_NAMES = [
@@ -111,10 +110,6 @@ function DailyView() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Total resumes" icon={BookOpen}>{data?.total ?? 0}</StatCard>
-      </div>
-
       {/* Filter bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 max-w-sm">
