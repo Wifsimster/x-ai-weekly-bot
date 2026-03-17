@@ -2,20 +2,68 @@ import type { Config } from './config.js';
 import { getDb, type RunRecord } from './db.js';
 import { logger } from './logger.js';
 import { run } from './index.js';
+import { collectTweets } from './collect-service.js';
 import { sendDiscordNotification } from './adapters/discord-notifier.js';
 import { getSetting } from './settings-service.js';
 
-let running = false;
+let publishRunning = false;
+let collectRunning = false;
 
 export function isRunning(): boolean {
-  return running;
+  return publishRunning;
+}
+
+export function isCollecting(): boolean {
+  return collectRunning;
+}
+
+/**
+ * Hourly tweet collection — lightweight, no AI, no Discord.
+ * Uses a separate concurrency guard so it doesn't block publish runs.
+ */
+export async function triggerCollect(
+  config: Config,
+): Promise<RunRecord> {
+  if (collectRunning) {
+    throw new Error('A collection is already in progress');
+  }
+
+  const db = getDb();
+  const insert = db.prepare(
+    `INSERT INTO runs (started_at, status, trigger_type) VALUES (datetime('now'), 'running', 'collect')`,
+  );
+  const { lastInsertRowid } = insert.run();
+  const runId = Number(lastInsertRowid);
+
+  collectRunning = true;
+
+  try {
+    const result = await collectTweets(config);
+
+    const status = result.fetched > 0 ? 'success' : 'no_tweets';
+    db.prepare(
+      `UPDATE runs SET finished_at = datetime('now'), status = ?, tweets_fetched = ? WHERE id = ?`,
+    ).run(status, result.newTweets, runId);
+
+    return db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    db.prepare(
+      `UPDATE runs SET finished_at = datetime('now'), status = 'error', error_message = ? WHERE id = ?`,
+    ).run(message, runId);
+
+    logger.error('Collection failed', { runId, error: message });
+    return db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
+  } finally {
+    collectRunning = false;
+  }
 }
 
 export async function triggerRun(
   config: Config,
   trigger: 'cron' | 'manual' = 'manual',
 ): Promise<RunRecord> {
-  if (running) {
+  if (publishRunning) {
     throw new Error('A run is already in progress');
   }
 
@@ -26,7 +74,7 @@ export async function triggerRun(
   const { lastInsertRowid } = insert.run(trigger);
   const runId = Number(lastInsertRowid);
 
-  running = true;
+  publishRunning = true;
 
   try {
     await run(config);
@@ -80,7 +128,7 @@ export async function triggerRun(
     logger.error('Run failed', { runId, error: message });
     return db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
   } finally {
-    running = false;
+    publishRunning = false;
   }
 }
 
@@ -136,7 +184,7 @@ export function updateRunStats(
 }
 
 export function getCurrentRunId(): number | undefined {
-  if (!running) return undefined;
+  if (!publishRunning && !collectRunning) return undefined;
   const db = getDb();
   const row = db
     .prepare("SELECT id FROM runs WHERE status = 'running' ORDER BY id DESC LIMIT 1")

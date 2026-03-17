@@ -8,7 +8,7 @@ export interface RunRecord {
   started_at: string;
   finished_at: string | null;
   status: 'running' | 'success' | 'no_news' | 'no_tweets' | 'error';
-  trigger_type: 'cron' | 'manual';
+  trigger_type: 'cron' | 'manual' | 'collect';
   tweets_fetched: number;
   tweets_posted: number;
   thread_ids: string | null;
@@ -72,6 +72,16 @@ const MIGRATIONS = [
     generated_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(year, month)
   )`,
+  `CREATE TABLE IF NOT EXISTS tweets (
+    id TEXT PRIMARY KEY,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    urls TEXT NOT NULL DEFAULT '[]',
+    collected_at TEXT NOT NULL DEFAULT (datetime('now')),
+    collection_date TEXT NOT NULL,
+    used_in_run_id INTEGER
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_tweets_collection_date ON tweets(collection_date, used_in_run_id)`,
 ];
 
 let db: Database.Database | null = null;

@@ -10,7 +10,9 @@ import {
   getRunHistory,
   getLastRun,
   isRunning,
+  isCollecting,
   triggerRun,
+  triggerCollect,
   getSuccessfulSummaries,
   countSuccessfulSummaries,
   getSuccessfulRunsByMonth,
@@ -34,9 +36,11 @@ import {
   maskCredential,
 } from './settings-service.js';
 import { REQUIRED_CREDENTIALS, type Config } from './config.js';
+import { countUnpublishedTweets, countTweetsForDate } from './tweet-store.js';
+import { getTodayDateParis } from './date-utils.js';
 import { validateXCookies, detectGqlIds, DEFAULT_GQL_IDS } from './adapters/scraper-reader.js';
 import { testDiscordWebhook, sendDiscordNotification } from './adapters/discord-notifier.js';
-import { reschedule, getCurrentSchedule } from './cron-manager.js';
+import { reschedule, rescheduleCollect, getCurrentSchedule, getCollectSchedule } from './cron-manager.js';
 import { buildMergedConfig } from './scheduler.js';
 
 interface MissingCredential {
@@ -60,11 +64,13 @@ function buildCredentialInfo(config: Config) {
 
 function buildEnvDefaults(config: Config, cronSchedule: string) {
   const activeCron = getCurrentSchedule() || getSetting('CRON_SCHEDULE') || cronSchedule;
+  const activeCollectCron = getCollectSchedule() || getSetting('COLLECT_CRON_SCHEDULE') || config.COLLECT_CRON_SCHEDULE;
   return {
     AI_MODEL: config.AI_MODEL,
     TWEETS_LOOKBACK_DAYS: String(config.TWEETS_LOOKBACK_DAYS),
     DRY_RUN: String(config.DRY_RUN),
     CRON_SCHEDULE: activeCron,
+    COLLECT_CRON_SCHEDULE: activeCollectCron,
     X_GQL_USER_BY_SCREEN_NAME_ID:
       config.X_GQL_USER_BY_SCREEN_NAME_ID || DEFAULT_GQL_IDS.UserByScreenName,
     X_GQL_HOME_TIMELINE_ID: config.X_GQL_HOME_TIMELINE_ID || DEFAULT_GQL_IDS.HomeLatestTimeline,
@@ -203,16 +209,34 @@ export function startServer(
       const totalRuns = getRunHistory(1000).length;
       return c.json({
         running: isRunning(),
+        collecting: isCollecting(),
         configured: true,
         lastRun,
         cronSchedule,
+        collectCronSchedule: getCollectSchedule() || config.COLLECT_CRON_SCHEDULE,
         totalRuns,
       });
     });
 
     app.get('/api/runs', (c) => {
       const limit = Number(c.req.query('limit') || '20');
-      return c.json(getRunHistory(limit));
+      const type = c.req.query('type'); // optional: 'collect', 'cron', 'manual'
+      const runs = getRunHistory(limit);
+      if (type) {
+        return c.json(runs.filter((r) => r.trigger_type === type));
+      }
+      return c.json(runs);
+    });
+
+    app.get('/api/collect-status', (c) => {
+      const today = getTodayDateParis();
+      return c.json({
+        collecting: isCollecting(),
+        today,
+        tweetsCollected: countTweetsForDate(today),
+        tweetsUnpublished: countUnpublishedTweets(today),
+        collectCronSchedule: getCollectSchedule() || config.COLLECT_CRON_SCHEDULE,
+      });
     });
 
     app.get('/api/settings', (c) => {
@@ -368,11 +392,18 @@ export function startServer(
 
     app.get('/api/cron-schedule', (c) => {
       const dbSchedule = getSetting('CRON_SCHEDULE');
+      const dbCollectSchedule = getSetting('COLLECT_CRON_SCHEDULE');
       const active = getCurrentSchedule() || cronSchedule;
+      const activeCollect = getCollectSchedule() || config.COLLECT_CRON_SCHEDULE;
       return c.json({
         active,
         saved: dbSchedule || cronSchedule,
         envDefault: cronSchedule,
+        collect: {
+          active: activeCollect,
+          saved: dbCollectSchedule || config.COLLECT_CRON_SCHEDULE,
+          envDefault: config.COLLECT_CRON_SCHEDULE,
+        },
       });
     });
 
@@ -406,6 +437,36 @@ export function startServer(
       });
     });
 
+    app.post('/api/collect-cron-schedule', async (c) => {
+      const body = await c.req.json();
+      const schedule = typeof body.schedule === 'string' ? body.schedule.trim() : '';
+
+      if (!schedule) {
+        return c.json({ success: false, message: 'La planification cron de collecte est requise.' });
+      }
+
+      if (!cron.validate(schedule)) {
+        return c.json({
+          success: false,
+          message: `Expression cron invalide : "${schedule}". Format attendu : minute heure jour mois jour-semaine`,
+        });
+      }
+
+      setSetting('COLLECT_CRON_SCHEDULE', schedule);
+      const ok = rescheduleCollect(schedule, config, buildMergedConfig);
+
+      if (ok) {
+        return c.json({
+          success: true,
+          message: 'Planification de collecte mise a jour et appliquee immediatement.',
+        });
+      }
+      return c.json({
+        success: false,
+        message: 'Erreur lors de la replanification de collecte.',
+      });
+    });
+
     app.post('/api/trigger', async (c) => {
       if (isRunning()) {
         return c.json({ success: false, message: 'Un run est déjà en cours.' });
@@ -423,6 +484,26 @@ export function startServer(
       return c.json({
         success: true,
         message: 'Run lancé ! La page se rafraîchira automatiquement.',
+      });
+    });
+
+    app.post('/api/trigger-collect', async (c) => {
+      if (isCollecting()) {
+        return c.json({ success: false, message: 'Une collecte est déjà en cours.' });
+      }
+
+      const overrides = getSettingsMap();
+      const mergedConfig = buildMergedConfig(config, overrides);
+
+      triggerCollect(mergedConfig).catch((err) => {
+        logger.error('Manual collect trigger failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+
+      return c.json({
+        success: true,
+        message: 'Collecte de tweets lancée !',
       });
     });
 

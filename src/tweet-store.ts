@@ -1,0 +1,99 @@
+import { getDb } from './db.js';
+import type { Tweet } from './ports.js';
+import { logger } from './logger.js';
+
+/**
+ * Stores tweets with deduplication via INSERT OR IGNORE on tweet ID.
+ * Returns the count of newly inserted tweets.
+ */
+export function storeTweets(tweets: Tweet[], collectionDate: string): number {
+  const db = getDb();
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO tweets (id, text, created_at, urls, collection_date)
+     VALUES (?, ?, ?, ?, ?)`,
+  );
+
+  const insertMany = db.transaction((items: Tweet[]) => {
+    let inserted = 0;
+    for (const tweet of items) {
+      const result = insert.run(
+        tweet.id,
+        tweet.text,
+        tweet.createdAt,
+        JSON.stringify(tweet.urls),
+        collectionDate,
+      );
+      if (result.changes > 0) inserted++;
+    }
+    return inserted;
+  });
+
+  const inserted = insertMany(tweets);
+  logger.info('Tweets stored', {
+    total: tweets.length,
+    new: inserted,
+    duplicates: tweets.length - inserted,
+    collectionDate,
+  });
+  return inserted;
+}
+
+/**
+ * Returns all tweets for a given date that haven't been used in a publish run yet.
+ */
+export function getUnpublishedTweets(collectionDate: string): Tweet[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT id, text, created_at, urls FROM tweets
+       WHERE collection_date = ? AND used_in_run_id IS NULL
+       ORDER BY created_at ASC`,
+    )
+    .all(collectionDate) as { id: string; text: string; created_at: string; urls: string }[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    text: row.text,
+    createdAt: row.created_at,
+    urls: JSON.parse(row.urls) as string[],
+  }));
+}
+
+/**
+ * Marks tweets as consumed by a publish run.
+ */
+export function markTweetsAsUsed(tweetIds: string[], runId: number): void {
+  const db = getDb();
+  const update = db.prepare('UPDATE tweets SET used_in_run_id = ? WHERE id = ?');
+  const updateMany = db.transaction((ids: string[]) => {
+    for (const id of ids) {
+      update.run(runId, id);
+    }
+  });
+  updateMany(tweetIds);
+}
+
+/**
+ * Returns the count of tweets collected today that are not yet used.
+ */
+export function countUnpublishedTweets(collectionDate: string): number {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) as count FROM tweets
+       WHERE collection_date = ? AND used_in_run_id IS NULL`,
+    )
+    .get(collectionDate) as { count: number };
+  return row.count;
+}
+
+/**
+ * Returns the total count of tweets collected for a given date.
+ */
+export function countTweetsForDate(collectionDate: string): number {
+  const db = getDb();
+  const row = db
+    .prepare(`SELECT COUNT(*) as count FROM tweets WHERE collection_date = ?`)
+    .get(collectionDate) as { count: number };
+  return row.count;
+}

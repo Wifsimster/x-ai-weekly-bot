@@ -21,6 +21,7 @@ const configSchema = z.object({
   ADMIN_PASSWORD: z.string().optional(),
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   CRON_SCHEDULE: z.string().default('30 7 * * *'),
+  COLLECT_CRON_SCHEDULE: z.string().default('0 * * * *'),
   DISCORD_WEBHOOK_URL: z
     .string()
     .url()
@@ -36,6 +37,7 @@ export type Config = z.infer<typeof configSchema>;
 const bootSchema = z.object({
   WEB_PORT: z.coerce.number().int().positive().default(3000),
   CRON_SCHEDULE: z.string().default('30 7 * * *'),
+  COLLECT_CRON_SCHEDULE: z.string().default('0 * * * *'),
   ADMIN_PASSWORD: z.string().optional(),
 });
 
