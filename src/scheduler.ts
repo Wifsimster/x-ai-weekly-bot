@@ -3,7 +3,7 @@ import { logger } from './logger.js';
 import { getSettingsMap } from './settings-service.js';
 import { startServer } from './server.js';
 import { getDb } from './db.js';
-import { scheduleCron } from './cron-manager.js';
+import { schedulePublishCron, scheduleCollectCron } from './cron-manager.js';
 import type { Config } from './config.js';
 
 // Always initialize database and boot the web server
@@ -23,17 +23,20 @@ startServer(
 
 if (configResult.success) {
   const config = configResult.config;
-  const cronSchedule = config.CRON_SCHEDULE;
+  const publishSchedule = config.CRON_SCHEDULE;
+  const collectSchedule = config.COLLECT_CRON_SCHEDULE;
 
   logger.info('X AI Daily Bot scheduler started', {
     username: config.X_USERNAME,
-    cron: cronSchedule,
+    publishCron: publishSchedule,
+    collectCron: collectSchedule,
     dryRun: config.DRY_RUN,
     webPort: bootConfig.WEB_PORT,
   });
 
-  // Schedule initial cron via the manager (supports hot-reload)
-  scheduleCron(cronSchedule, config, buildMergedConfig);
+  // Schedule both cron tasks via the manager (supports hot-reload)
+  schedulePublishCron(publishSchedule, config, buildMergedConfig);
+  scheduleCollectCron(collectSchedule, config, buildMergedConfig);
 } else {
   logger.warn('X AI Daily Bot started in setup mode — missing credentials', {
     missing: configResult.missing.map((m) => m.key),
@@ -61,6 +64,9 @@ export function buildMergedConfig(baseConfig: Config, overrides: Record<string, 
     }),
     ...(overrides.DISCORD_WEBHOOK_URL && {
       DISCORD_WEBHOOK_URL: overrides.DISCORD_WEBHOOK_URL,
+    }),
+    ...(overrides.COLLECT_CRON_SCHEDULE && {
+      COLLECT_CRON_SCHEDULE: overrides.COLLECT_CRON_SCHEDULE,
     }),
   };
 }
