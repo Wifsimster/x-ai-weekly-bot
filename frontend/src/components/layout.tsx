@@ -134,7 +134,7 @@ export function Layout() {
         <div className="container mx-auto px-4">
           <p className="text-xs text-muted-foreground">
             X AI Weekly Bot v{versionInfo?.version || 'dev'}
-            {versionInfo?.buildDate && <> — Build {new Date(versionInfo.buildDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>}
+            {versionInfo?.buildDate && <> — Build {new Date(versionInfo.buildDate).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</>}
           </p>
         </div>
       </footer>
