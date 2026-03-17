@@ -3,7 +3,7 @@ export interface RunRecord {
   started_at: string;
   finished_at: string | null;
   status: 'running' | 'success' | 'no_news' | 'no_tweets' | 'error' | 'deleted';
-  trigger_type: 'cron' | 'manual';
+  trigger_type: 'cron' | 'manual' | 'collect';
   tweets_fetched: number;
   tweets_posted: number;
   thread_ids: string | null;

@@ -45,7 +45,7 @@ export async function triggerCollect(
     const status = result.fetched > 0 ? 'success' : 'no_tweets';
     db.prepare(
       `UPDATE runs SET finished_at = datetime('now'), status = ?, tweets_fetched = ? WHERE id = ?`,
-    ).run(status, result.newTweets, runId);
+    ).run(status, result.fetched, runId);
 
     return db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
   } catch (err) {
