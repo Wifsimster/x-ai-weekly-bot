@@ -5,6 +5,8 @@ import { run } from './index.js';
 import { collectTweets } from './collect-service.js';
 import { sendDiscordNotification } from './adapters/discord-notifier.js';
 import { getSetting } from './settings-service.js';
+import { releaseTweetsForRun, getCollectionDateForRun } from './tweet-store.js';
+import { deleteMonthlySummariesReferencingRun } from './monthly-summary-service.js';
 
 let publishRunning = false;
 let collectRunning = false;
@@ -190,6 +192,111 @@ export function getCurrentRunId(): number | undefined {
     .prepare("SELECT id FROM runs WHERE status = 'running' ORDER BY id DESC LIMIT 1")
     .get() as { id: number } | undefined;
   return row?.id;
+}
+
+/**
+ * Soft-deletes a summary: nulls the summary, sets status to 'deleted',
+ * releases associated tweets, and cascades to monthly summaries.
+ */
+export function deleteSummary(runId: number): { success: boolean; message: string } {
+  const db = getDb();
+  const targetRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord | undefined;
+  if (!targetRun) {
+    return { success: false, message: 'Run introuvable.' };
+  }
+  if (targetRun.status !== 'success' || !targetRun.summary) {
+    return { success: false, message: 'Ce run ne contient pas de resume a supprimer.' };
+  }
+
+  const doDelete = db.transaction(() => {
+    db.prepare(
+      `UPDATE runs SET summary = NULL, status = 'deleted', notification_status = NULL WHERE id = ?`,
+    ).run(runId);
+    releaseTweetsForRun(runId);
+    deleteMonthlySummariesReferencingRun(runId);
+  });
+  doDelete();
+
+  logger.info('Summary deleted', { runId });
+  return { success: true, message: 'Resume supprime avec succes.' };
+}
+
+/**
+ * Re-runs the AI summary for a given run's collection date.
+ * Soft-deletes the old run, creates a new run, and processes the freed tweets.
+ */
+export async function triggerRerun(
+  config: Config,
+  originalRunId: number,
+): Promise<{ success: boolean; message: string; run?: RunRecord }> {
+  if (publishRunning) {
+    return { success: false, message: 'Un run est deja en cours.' };
+  }
+
+  const db = getDb();
+  const originalRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(originalRunId) as RunRecord | undefined;
+  if (!originalRun) {
+    return { success: false, message: 'Run introuvable.' };
+  }
+  if (originalRun.status !== 'success' || !originalRun.summary) {
+    return { success: false, message: 'Ce run ne contient pas de resume a regenerer.' };
+  }
+
+  // Determine collection date from tweets or run start time
+  const collectionDate = getCollectionDateForRun(originalRunId)
+    ?? originalRun.started_at.split('T')[0].split(' ')[0];
+
+  if (!collectionDate) {
+    return { success: false, message: 'Impossible de determiner la date de collecte.' };
+  }
+
+  // Soft-delete old run and release tweets atomically
+  const doDelete = db.transaction(() => {
+    db.prepare(
+      `UPDATE runs SET summary = NULL, status = 'deleted', notification_status = NULL WHERE id = ?`,
+    ).run(originalRunId);
+    releaseTweetsForRun(originalRunId);
+    deleteMonthlySummariesReferencingRun(originalRunId);
+  });
+  doDelete();
+
+  // Create new run and process
+  const insert = db.prepare(
+    `INSERT INTO runs (started_at, status, trigger_type) VALUES (datetime('now'), 'running', 'manual')`,
+  );
+  const { lastInsertRowid } = insert.run();
+  const runId = Number(lastInsertRowid);
+
+  publishRunning = true;
+
+  try {
+    await run(config, collectionDate);
+
+    const lastRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
+    const status = lastRun.summary
+      ? 'success'
+      : lastRun.tweets_fetched > 0
+        ? 'no_news'
+        : 'no_tweets';
+
+    db.prepare(`UPDATE runs SET finished_at = datetime('now'), status = ? WHERE id = ?`).run(
+      status,
+      runId,
+    );
+
+    const finalRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
+    return { success: true, message: 'Resume regenere avec succes.', run: finalRun };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    db.prepare(
+      `UPDATE runs SET finished_at = datetime('now'), status = 'error', error_message = ? WHERE id = ?`,
+    ).run(message, runId);
+
+    logger.error('Rerun failed', { runId, originalRunId, error: message });
+    return { success: false, message: `Erreur lors de la regeneration : ${message}` };
+  } finally {
+    publishRunning = false;
+  }
 }
 
 export interface SummaryFilters {

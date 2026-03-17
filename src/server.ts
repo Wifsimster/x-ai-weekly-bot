@@ -18,6 +18,8 @@ import {
   getSuccessfulRunsByMonth,
   getRunById,
   updateNotificationStatus,
+  deleteSummary,
+  triggerRerun,
 } from './run-service.js';
 import {
   generateMonthlySummary,
@@ -364,6 +366,27 @@ export function startServer(
         const msg = err instanceof Error ? err.message : String(err);
         return c.json({ success: false, message: msg }, 500);
       }
+    });
+
+    app.delete('/api/summaries/:id', (c) => {
+      const runId = Number(c.req.param('id'));
+      if (!runId || runId < 1) {
+        return c.json({ success: false, message: 'ID de run invalide.' }, 400);
+      }
+      const result = deleteSummary(runId);
+      return c.json(result, result.success ? 200 : 400);
+    });
+
+    app.post('/api/summaries/:id/rerun', async (c) => {
+      const runId = Number(c.req.param('id'));
+      if (!runId || runId < 1) {
+        return c.json({ success: false, message: 'ID de run invalide.' }, 400);
+      }
+
+      const overrides = getSettingsMap();
+      const mergedConfig = buildMergedConfig(config, overrides);
+      const result = await triggerRerun(mergedConfig, runId);
+      return c.json(result, result.success ? 200 : 400);
     });
 
     app.post('/api/detect-gql-ids', async (c) => {

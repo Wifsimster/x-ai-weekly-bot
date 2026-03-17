@@ -40,7 +40,7 @@ export function createAIFilter(config: Config) {
 
   return { filterAndSummarize, synthesizeMonthlySummary };
 
-  async function filterAndSummarize(tweets: Tweet[]): Promise<string | null> {
+  async function filterAndSummarize(tweets: Tweet[], dateOverride?: Date): Promise<string | null> {
     const tweetTexts = tweets
       .map((t, i) => {
         const urls = t.urls.length > 0 ? `\nURLs: ${t.urls.join(', ')}` : '';
@@ -55,7 +55,7 @@ export function createAIFilter(config: Config) {
         { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `Date: ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}\n\nHere are the tweets from the past ${config.TWEETS_LOOKBACK_DAYS} days:\n\n${tweetTexts}`,
+          content: `Date: ${(dateOverride ?? new Date()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}\n\nHere are the tweets from the past ${config.TWEETS_LOOKBACK_DAYS} days:\n\n${tweetTexts}`,
         },
       ],
     });

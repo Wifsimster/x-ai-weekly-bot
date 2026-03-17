@@ -7,7 +7,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { MarkdownContent } from "@/components/markdown-content";
-import { Calendar, TrendingUp, Loader2, Send, Check, X, Search, RotateCcw } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import { Calendar, TrendingUp, Loader2, Send, Check, X, Search, RotateCcw, Trash2, RefreshCw } from "lucide-react";
 import type { RunRecord, MonthlySummaryRecord, AvailableMonth, ConfigResponse } from "@/types";
 
 const MONTH_NAMES = [
@@ -74,7 +86,7 @@ function DailyView() {
   if (filterMonth) params.set("month", filterMonth);
   if (debouncedSearch) params.set("search", debouncedSearch);
 
-  const { data, loading } = useApi<{ summaries: RunRecord[]; total: number }>(
+  const { data, loading, refetch } = useApi<{ summaries: RunRecord[]; total: number }>(
     `/api/summaries?${params.toString()}`
   );
   const { data: available } = useApi<AvailableMonth[]>("/api/monthly-summaries/available");
@@ -156,7 +168,7 @@ function DailyView() {
         <>
           <div className="space-y-4">
             {data.summaries.map((run) => (
-              <SummaryCard key={run.id} run={run} discordConfigured={discordConfigured} />
+              <SummaryCard key={run.id} run={run} discordConfigured={discordConfigured} onMutate={refetch} />
             ))}
           </div>
 
@@ -189,11 +201,16 @@ function DailyView() {
   );
 }
 
-function SummaryCard({ run, discordConfigured }: { run: RunRecord; discordConfigured: boolean }) {
+function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; discordConfigured: boolean; onMutate: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<"success" | "error" | null>(null);
   const [notifStatus, setNotifStatus] = useState(run.notification_status);
+  const [deleting, setDeleting] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
+  const [rerunResult, setRerunResult] = useState<"success" | "error" | null>(null);
+
+  const busy = sending || deleting || rerunning;
 
   const handleSendDiscord = async () => {
     setSending(true);
@@ -217,6 +234,41 @@ function SummaryCard({ run, discordConfigured }: { run: RunRecord; discordConfig
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/summaries/${run.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        onMutate();
+      }
+    } catch {
+      // silently fail — card stays visible
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleRerun = async () => {
+    setRerunning(true);
+    setRerunResult(null);
+    try {
+      const res = await fetch(`/api/summaries/${run.id}/rerun`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setRerunResult("success");
+        onMutate();
+      } else {
+        setRerunResult("error");
+      }
+    } catch {
+      setRerunResult("error");
+    } finally {
+      setRerunning(false);
+      setTimeout(() => setRerunResult(null), 3000);
+    }
+  };
+
   return (
     <Card className="border-l-4 border-l-primary/20">
       <CardHeader className="pb-2">
@@ -231,11 +283,29 @@ function SummaryCard({ run, discordConfigured }: { run: RunRecord; discordConfig
             )}
             <Badge variant="secondary">{run.tweets_fetched} tweets</Badge>
             <Badge variant="outline">Run #{run.id}</Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={handleRerun}
+              className="h-7 w-7 p-0"
+              title="Regenerer le resume"
+            >
+              {rerunning ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : rerunResult === "success" ? (
+                <Check className="h-3.5 w-3.5 text-green-600" />
+              ) : rerunResult === "error" ? (
+                <X className="h-3.5 w-3.5 text-destructive" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+            </Button>
             {discordConfigured && (
               <Button
                 variant="outline"
                 size="sm"
-                disabled={sending}
+                disabled={busy}
                 onClick={handleSendDiscord}
                 className="h-7 px-2 text-xs"
               >
@@ -253,6 +323,41 @@ function SummaryCard({ run, discordConfigured }: { run: RunRecord; discordConfig
                 )}
               </Button>
             )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                  title="Supprimer le resume"
+                >
+                  {deleting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Supprimer ce resume ?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Cette action est irreversible. Le resume sera definitivement supprime
+                    et les tweets associes seront liberes pour une eventuelle regeneration.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className={buttonVariants({ variant: "destructive" })}
+                  >
+                    Supprimer
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </CardHeader>
