@@ -99,28 +99,26 @@ export async function triggerRun(
     if (status === 'success' && finalRun.summary) {
       const webhookUrl = getSetting('DISCORD_WEBHOOK_URL') ?? config.DISCORD_WEBHOOK_URL;
       if (webhookUrl) {
-        // Fire-and-forget — don't block the run result
-        sendDiscordNotification(webhookUrl, finalRun.summary, runId)
-          .then((result) => {
-            const notifStatus = result.success ? 'sent' : 'failed';
-            db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run(
-              notifStatus,
-              runId,
-            );
-          })
-          .catch((notifErr) => {
-            logger.error('Discord notification unexpected error', {
-              runId,
-              error: String(notifErr),
-            });
-            db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run('failed', runId);
+        try {
+          const notifResult = await sendDiscordNotification(webhookUrl, finalRun.summary, runId);
+          const notifStatus = notifResult.success ? 'sent' : 'failed';
+          db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run(
+            notifStatus,
+            runId,
+          );
+        } catch (notifErr) {
+          logger.error('Discord notification unexpected error', {
+            runId,
+            error: String(notifErr),
           });
+          db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run('failed', runId);
+        }
       } else {
         db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run('skipped', runId);
       }
     }
 
-    return finalRun;
+    return db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as RunRecord;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     db.prepare(
@@ -147,6 +145,29 @@ export function updateNotificationStatus(runId: number, status: string): void {
 export function getRunHistory(limit = 20): RunRecord[] {
   const db = getDb();
   return db.prepare('SELECT * FROM runs ORDER BY id DESC LIMIT ?').all(limit) as RunRecord[];
+}
+
+export function countRuns(): number {
+  const db = getDb();
+  const row = db.prepare('SELECT COUNT(*) as count FROM runs').get() as { count: number };
+  return row.count;
+}
+
+/**
+ * On startup, mark any runs stuck in 'running' status as 'error'.
+ * This handles the case where the process was killed mid-run.
+ */
+export function recoverStaleRuns(): number {
+  const db = getDb();
+  const result = db
+    .prepare(
+      `UPDATE runs SET finished_at = datetime('now'), status = 'error', error_message = 'Processus interrompu de manière inattendue' WHERE status = 'running'`,
+    )
+    .run();
+  if (result.changes > 0) {
+    logger.info('Recovered stale runs on startup', { count: result.changes });
+  }
+  return result.changes;
 }
 
 export function getLastRun(): RunRecord | undefined {

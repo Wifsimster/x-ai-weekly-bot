@@ -32,10 +32,13 @@ Start with a brief introduction summarizing the month's highlights.
 End with a "TENDANCES DU MOIS" section highlighting key trends.
 Use a professional but engaging tone.`;
 
+const AI_TIMEOUT_MS = 60_000;
+
 export function createAIFilter(config: Config) {
   const client = new OpenAI({
     baseURL: 'https://models.github.ai/inference',
     apiKey: config.GITHUB_TOKEN,
+    timeout: AI_TIMEOUT_MS,
   });
 
   return { filterAndSummarize, synthesizeMonthlySummary };

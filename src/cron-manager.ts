@@ -102,6 +102,14 @@ export function reschedule(
   return schedulePublishCron(newSchedule, baseConfig, buildMergedConfig);
 }
 
+export function stopAll(): void {
+  for (const [name, task] of tasks) {
+    task.stop();
+    logger.info('Cron task stopped', { name });
+  }
+  tasks.clear();
+}
+
 export function rescheduleCollect(
   newSchedule: string,
   baseConfig: Config,

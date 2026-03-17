@@ -2,12 +2,45 @@ import { tryLoadConfigWithOverrides, loadBootConfig } from './config.js';
 import { logger } from './logger.js';
 import { getSettingsMap } from './settings-service.js';
 import { startServer } from './server.js';
-import { getDb } from './db.js';
-import { schedulePublishCron, scheduleCollectCron } from './cron-manager.js';
+import { getDb, closeDb } from './db.js';
+import { schedulePublishCron, scheduleCollectCron, stopAll as stopAllCrons } from './cron-manager.js';
+import { recoverStaleRuns, isRunning, isCollecting } from './run-service.js';
 import type { Config } from './config.js';
 
 // Always initialize database and boot the web server
 getDb();
+
+// Recover any runs stuck in 'running' state from a previous crash
+recoverStaleRuns();
+
+// Graceful shutdown handler
+let shuttingDown = false;
+
+function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info('Shutdown signal received, draining...', { signal });
+
+  // Stop all cron tasks immediately
+  stopAllCrons();
+
+  // Wait for in-flight operations to complete (max 30s)
+  const deadline = Date.now() + 30_000;
+  const interval = setInterval(() => {
+    if ((!isRunning() && !isCollecting()) || Date.now() > deadline) {
+      clearInterval(interval);
+      if (Date.now() > deadline) {
+        logger.warn('Shutdown deadline exceeded, forcing exit');
+      }
+      closeDb();
+      logger.info('Graceful shutdown complete');
+      process.exit(0);
+    }
+  }, 500);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 const bootConfig = loadBootConfig();
 const dbOverrides = getSettingsMap();

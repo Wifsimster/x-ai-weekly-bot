@@ -20,6 +20,7 @@ export interface SettingRecord {
 
 export interface StatusResponse {
   running: boolean;
+  collecting: boolean;
   configured: boolean;
   lastRun?: RunRecord;
   cronSchedule: string;

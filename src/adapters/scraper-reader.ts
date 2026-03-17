@@ -123,7 +123,7 @@ export async function validateXCookies(
   const url = `https://x.com/i/api/graphql/${queryId}/UserByScreenName?variables=${encodeURIComponent(variables)}&features=${USER_FEATURES_ENCODED}&fieldToggles=${USER_FIELD_TOGGLES_ENCODED}`;
 
   try {
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(30_000) });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         return { valid: false, error: 'Cookies invalides ou expirés' };
@@ -163,6 +163,9 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
   let userByScreenNameId = config.X_GQL_USER_BY_SCREEN_NAME_ID ?? DEFAULT_GQL_IDS.UserByScreenName;
   let homeTimelineId = config.X_GQL_HOME_TIMELINE_ID ?? DEFAULT_GQL_IDS.HomeLatestTimeline;
 
+  const MAX_PAGES = 10;
+  const FETCH_TIMEOUT_MS = 30_000;
+
   return { fetchRecentTweets };
 
   async function fetchRecentTweets(): Promise<Tweet[]> {
@@ -171,6 +174,7 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
 
     const tweets: Tweet[] = [];
     let cursor: string | undefined;
+    let page = 0;
     const stats = {
       raw: 0,
       parsed: 0,
@@ -182,7 +186,8 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
       droppedException: 0,
     };
 
-    while (true) {
+    while (page < MAX_PAGES) {
+      page++;
       const { entries, nextCursor } = await fetchHomeTimelinePage(cursor);
 
       if (entries.length === 0) break;
@@ -275,14 +280,14 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
 
     const url = `https://x.com/i/api/graphql/${homeTimelineId}/HomeLatestTimeline?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!response.ok) {
       // On 404, try auto-detecting new GQL IDs and retry once
       if (response.status === 404) {
         const updated = await refreshGqlIds();
         if (updated) {
           const retryUrl = `https://x.com/i/api/graphql/${homeTimelineId}/HomeLatestTimeline?variables=${encodeURIComponent(JSON.stringify(variables))}&features=${TIMELINE_FEATURES_ENCODED}`;
-          const retryResponse = await fetch(retryUrl, { headers });
+          const retryResponse = await fetch(retryUrl, { headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
           if (retryResponse.ok) {
             const retryJson = (await retryResponse.json()) as Record<string, unknown>;
             return parseHomeTimelineResponse(retryJson);

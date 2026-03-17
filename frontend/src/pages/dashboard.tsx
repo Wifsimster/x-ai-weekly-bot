@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApi } from '@/hooks/use-api';
 import { StatusBadge } from '@/components/status-badge';
 import { StatCard } from '@/components/stat-card';
@@ -23,9 +23,40 @@ import { MarkdownContent } from '@/components/markdown-content';
 import { toast } from 'sonner';
 import type { StatusResponse } from '@/types';
 
+const POLL_INTERVAL_MS = 4_000;
+
 export function DashboardPage() {
   const { data: status, loading, refetch } = useApi<StatusResponse>('/api/status');
   const [triggering, setTriggering] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wasRunning = useRef(false);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollRef.current = setInterval(() => refetch(), POLL_INTERVAL_MS);
+  }, [refetch, stopPolling]);
+
+  // Auto-poll while a run or collection is active
+  useEffect(() => {
+    const isActive = status?.running || status?.collecting;
+    if (isActive && !pollRef.current) {
+      startPolling();
+      wasRunning.current = true;
+    } else if (!isActive && wasRunning.current) {
+      stopPolling();
+      wasRunning.current = false;
+      // One final refetch to get the completed state
+      refetch();
+    }
+    return stopPolling;
+  }, [status?.running, status?.collecting, startPolling, stopPolling, refetch]);
 
   const handleTrigger = async () => {
     setTriggering(true);
@@ -34,6 +65,9 @@ export function DashboardPage() {
       const data = await res.json();
       if (data.success) {
         toast.success(data.message);
+        // Start polling immediately after triggering
+        startPolling();
+        wasRunning.current = true;
       } else {
         toast.error(data.message);
       }

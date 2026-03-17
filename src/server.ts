@@ -20,6 +20,7 @@ import {
   updateNotificationStatus,
   deleteSummary,
   triggerRerun,
+  countRuns,
 } from './run-service.js';
 import {
   generateMonthlySummary,
@@ -208,7 +209,6 @@ export function startServer(
 
     app.get('/api/status', (c) => {
       const lastRun = getLastRun();
-      const totalRuns = getRunHistory(1000).length;
       return c.json({
         running: isRunning(),
         collecting: isCollecting(),
@@ -216,7 +216,7 @@ export function startServer(
         lastRun,
         cronSchedule,
         collectCronSchedule: getCollectSchedule() || config.COLLECT_CRON_SCHEDULE,
-        totalRuns,
+        totalRuns: countRuns(),
       });
     });
 
