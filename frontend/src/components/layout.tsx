@@ -58,11 +58,11 @@ export function Layout() {
             <NavLink to="/" end className={navLinkClass}>
               Dashboard
             </NavLink>
-            <NavLink to="/runs" className={navLinkClass}>
-              Historique
-            </NavLink>
             <NavLink to="/summaries" className={navLinkClass}>
               Synthèses
+            </NavLink>
+            <NavLink to="/runs" className={navLinkClass}>
+              Historique
             </NavLink>
             <NavLink to="/settings" className={navLinkClass}>
               Paramètres
@@ -95,11 +95,11 @@ export function Layout() {
             <NavLink to="/" end className={mobileNavLinkClass}>
               Dashboard
             </NavLink>
-            <NavLink to="/runs" className={mobileNavLinkClass}>
-              Historique
-            </NavLink>
             <NavLink to="/summaries" className={mobileNavLinkClass}>
               Synthèses
+            </NavLink>
+            <NavLink to="/runs" className={mobileNavLinkClass}>
+              Historique
             </NavLink>
             <NavLink to="/settings" className={mobileNavLinkClass}>
               Paramètres
