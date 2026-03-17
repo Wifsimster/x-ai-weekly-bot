@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Link, Outlet, useLocation } from 'react-router-dom';
 import { useTheme } from '@/components/theme-provider';
 import { useApi } from '@/hooks/use-api';
@@ -9,7 +9,8 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { BrainCircuit, Menu, X } from 'lucide-react';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { BrainCircuit, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
@@ -35,11 +36,11 @@ export function Layout() {
   const { data: versionInfo } = useApi<{ version: string; buildDate: string | null }>(
     '/api/version',
   );
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    setMenuOpen(false);
+    setSheetOpen(false);
   }, [location.pathname]);
 
   return (
@@ -59,65 +60,72 @@ export function Layout() {
               Dashboard
             </NavLink>
             <NavLink to="/summaries" className={navLinkClass}>
-              Synthèses
+              Syntheses
             </NavLink>
             <NavLink to="/runs" className={navLinkClass}>
               Historique
             </NavLink>
             <NavLink to="/settings" className={navLinkClass}>
-              Paramètres
+              Parametres
             </NavLink>
             <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
-              <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Thème">
+              <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Theme">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="system">Système</SelectItem>
+                <SelectItem value="system">Systeme</SelectItem>
                 <SelectItem value="light">Clair</SelectItem>
                 <SelectItem value="dark">Sombre</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Mobile hamburger */}
-          <button
-            className="md:hidden p-2 -mr-2 hover:bg-muted rounded-md transition-colors"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-          >
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {/* Mobile sheet nav */}
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger asChild>
+              <button
+                className="md:hidden p-2 -mr-2 hover:bg-muted rounded-md transition-colors"
+                aria-label="Ouvrir le menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <BrainCircuit className="h-5 w-5 text-primary" />
+                  Navigation
+                </SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 space-y-1">
+                <NavLink to="/" end className={mobileNavLinkClass}>
+                  Dashboard
+                </NavLink>
+                <NavLink to="/summaries" className={mobileNavLinkClass}>
+                  Syntheses
+                </NavLink>
+                <NavLink to="/runs" className={mobileNavLinkClass}>
+                  Historique
+                </NavLink>
+                <NavLink to="/settings" className={mobileNavLinkClass}>
+                  Parametres
+                </NavLink>
+                <div className="pt-4 border-t border-primary/10">
+                  <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
+                    <SelectTrigger className="h-10 w-full text-sm" aria-label="Theme">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="system">Systeme</SelectItem>
+                      <SelectItem value="light">Clair</SelectItem>
+                      <SelectItem value="dark">Sombre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
-
-        {/* Mobile nav panel */}
-        {menuOpen && (
-          <div className="md:hidden border-t border-primary/15 bg-card/95 backdrop-blur-md px-4 py-3 space-y-1">
-            <NavLink to="/" end className={mobileNavLinkClass}>
-              Dashboard
-            </NavLink>
-            <NavLink to="/summaries" className={mobileNavLinkClass}>
-              Synthèses
-            </NavLink>
-            <NavLink to="/runs" className={mobileNavLinkClass}>
-              Historique
-            </NavLink>
-            <NavLink to="/settings" className={mobileNavLinkClass}>
-              Paramètres
-            </NavLink>
-            <div className="pt-2 border-t border-primary/10">
-              <Select value={theme} onValueChange={(v) => setTheme(v as 'light' | 'dark' | 'system')}>
-                <SelectTrigger className="h-10 w-full text-sm" aria-label="Thème">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="system">Système</SelectItem>
-                  <SelectItem value="light">Clair</SelectItem>
-                  <SelectItem value="dark">Sombre</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
       </nav>
       <main className="container mx-auto flex-1 px-3 py-4 sm:px-4 sm:py-6">
         <Outlet />

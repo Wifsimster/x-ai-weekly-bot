@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TweetListPanel } from "@/components/tweet-list-panel";
 import { MarkdownContent } from "@/components/markdown-content";
@@ -22,11 +24,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { Calendar, TrendingUp, Loader2, Send, Check, X, Search, RotateCcw, Trash2, RefreshCw, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 import type { RunRecord, MonthlySummaryRecord, AvailableMonth, ConfigResponse } from "@/types";
 
 const MONTH_NAMES = [
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+  "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
 ];
 
 function formatDate(dateStr: string): string {
@@ -35,34 +38,25 @@ function formatDate(dateStr: string): string {
 }
 
 export function SummariesPage() {
-  const [view, setView] = useState<"daily" | "monthly">("daily");
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Syntheses</h1>
-          <p className="text-muted-foreground">Historique des resumes IA quotidiens et mensuels</p>
-        </div>
-        <div className="flex gap-1 rounded-lg border p-1 self-start">
-          <Button
-            variant={view === "daily" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setView("daily")}
-          >
-            Quotidien
-          </Button>
-          <Button
-            variant={view === "monthly" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setView("monthly")}
-          >
-            Mensuel
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Syntheses</h1>
+        <p className="text-muted-foreground">Historique des resumes IA quotidiens et mensuels</p>
       </div>
 
-      {view === "daily" ? <DailyView /> : <MonthlyView />}
+      <Tabs defaultValue="daily">
+        <TabsList>
+          <TabsTrigger value="daily">Quotidien</TabsTrigger>
+          <TabsTrigger value="monthly">Mensuel</TabsTrigger>
+        </TabsList>
+        <TabsContent value="daily">
+          <DailyView />
+        </TabsContent>
+        <TabsContent value="monthly">
+          <MonthlyView />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -206,7 +200,6 @@ function DailyView() {
 function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; discordConfigured: boolean; onMutate: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<"success" | "error" | null>(null);
   const [notifStatus, setNotifStatus] = useState(run.notification_status);
   const [deleting, setDeleting] = useState(false);
   const [rerunning, setRerunning] = useState(false);
@@ -216,23 +209,21 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
 
   const handleSendDiscord = async () => {
     setSending(true);
-    setSendResult(null);
     try {
       const res = await fetch(`/api/runs/${run.id}/send-discord`, {
         method: "POST",
       });
       const data = await res.json();
       if (data.success) {
-        setSendResult("success");
+        toast.success("Resume envoye sur Discord");
         setNotifStatus("sent");
       } else {
-        setSendResult("error");
+        toast.error("Echec de l'envoi sur Discord");
       }
     } catch {
-      setSendResult("error");
+      toast.error("Erreur reseau lors de l'envoi");
     } finally {
       setSending(false);
-      setTimeout(() => setSendResult(null), 3000);
     }
   };
 
@@ -281,7 +272,7 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
           </div>
           <div className="flex items-center gap-2">
             {notifStatus === "sent" && (
-              <Badge variant="secondary" className="text-green-600 dark:text-green-400">Discord</Badge>
+              <Badge variant="success">Discord</Badge>
             )}
             {run.tweets_fetched > 0 ? (
               <Sheet>
@@ -316,7 +307,7 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
               {rerunning ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : rerunResult === "success" ? (
-                <Check className="h-3.5 w-3.5 text-green-600" />
+                <Check className="h-3.5 w-3.5 text-success" />
               ) : rerunResult === "error" ? (
                 <X className="h-3.5 w-3.5 text-destructive" />
               ) : (
@@ -324,26 +315,28 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
               )}
             </Button>
             {discordConfigured && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy}
-                onClick={handleSendDiscord}
-                className="h-7 px-2 text-xs"
-              >
-                {sending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : sendResult === "success" ? (
-                  <Check className="h-3.5 w-3.5 text-green-600" />
-                ) : sendResult === "error" ? (
-                  <X className="h-3.5 w-3.5 text-destructive" />
-                ) : (
-                  <>
-                    <Send className="h-3.5 w-3.5 mr-1" />
-                    Discord
-                  </>
-                )}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={handleSendDiscord}
+                    className="h-7 px-2 text-xs"
+                    aria-label="Envoyer sur Discord"
+                  >
+                    {sending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="h-3.5 w-3.5 mr-1" />
+                        Discord
+                      </>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Envoyer ce resume sur Discord</TooltipContent>
+              </Tooltip>
             )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -409,7 +402,6 @@ function MonthlyView() {
   const [selectedYear, setSelectedYear] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [generating, setGenerating] = useState(false);
-  const [genMessage, setGenMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   if (loadingAvailable || loadingSummaries) {
     return (
@@ -426,7 +418,6 @@ function MonthlyView() {
   const handleGenerate = async () => {
     if (!selectedYear || !selectedMonth) return;
     setGenerating(true);
-    setGenMessage(null);
     try {
       const res = await fetch("/api/monthly-summaries/generate", {
         method: "POST",
@@ -435,13 +426,13 @@ function MonthlyView() {
       });
       const data = await res.json();
       if (data.success) {
-        setGenMessage({ type: "success", text: "Resume mensuel genere avec succes." });
+        toast.success("Resume mensuel genere avec succes");
         refetch();
       } else {
-        setGenMessage({ type: "error", text: data.message || "Erreur lors de la generation." });
+        toast.error(data.message || "Erreur lors de la generation");
       }
     } catch {
-      setGenMessage({ type: "error", text: "Erreur reseau." });
+      toast.error("Erreur reseau");
     } finally {
       setGenerating(false);
     }
@@ -494,11 +485,6 @@ function MonthlyView() {
               {generating ? "Generation..." : "Generer"}
             </Button>
           </div>
-          {genMessage && (
-            <p className={`text-sm ${genMessage.type === "success" ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
-              {genMessage.text}
-            </p>
-          )}
         </CardContent>
       </Card>
 
