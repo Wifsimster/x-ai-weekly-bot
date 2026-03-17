@@ -16,7 +16,7 @@ function RunCard({ run }: { run: RunRecord }) {
             <StatusBadge status={run.status} />
             <span className="text-sm text-muted-foreground">#{run.id}</span>
           </div>
-          <Badge variant="outline" className="text-xs">{run.tweets_fetched} tweets</Badge>
+          <Badge variant="outline" className="text-xs">{run.tweets_fetched} messages</Badge>
         </div>
         <div className="text-sm">
           <span className="text-muted-foreground">Début : </span>
@@ -94,7 +94,7 @@ export function RunsPage() {
               <TableHead>Fin</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead>Déclencheur</TableHead>
-              <TableHead>Tweets</TableHead>
+              <TableHead>Messages</TableHead>
               <TableHead>Résumé</TableHead>
               <TableHead>Erreur</TableHead>
             </TableRow>

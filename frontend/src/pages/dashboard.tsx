@@ -123,7 +123,7 @@ export function DashboardPage() {
                 <p className="font-medium">{lastRun.started_at}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Tweets analysés</p>
+                <p className="text-sm text-muted-foreground">Messages collectés</p>
                 <p className="font-medium">{lastRun.tweets_fetched}</p>
               </div>
             </div>

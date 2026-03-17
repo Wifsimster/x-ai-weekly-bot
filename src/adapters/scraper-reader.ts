@@ -171,15 +171,26 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
 
     const tweets: Tweet[] = [];
     let cursor: string | undefined;
+    const stats = {
+      raw: 0,
+      parsed: 0,
+      droppedNoResult: 0,
+      droppedNoLegacy: 0,
+      droppedSchemaFail: 0,
+      droppedRtUnparseable: 0,
+      droppedTombstone: 0,
+      droppedException: 0,
+    };
 
     while (true) {
       const { entries, nextCursor } = await fetchHomeTimelinePage(cursor);
 
       if (entries.length === 0) break;
 
+      stats.raw += entries.length;
       let reachedLookbackLimit = false;
       for (const entry of entries) {
-        const tweet = parseTweetEntry(entry);
+        const tweet = parseTweetEntry(entry, stats);
         if (!tweet) continue;
 
         if (new Date(tweet.createdAt) < startTime) {
@@ -188,6 +199,7 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
         }
 
         tweets.push(tweet);
+        stats.parsed++;
       }
 
       if (reachedLookbackLimit) break;
@@ -196,9 +208,22 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
       cursor = nextCursor;
     }
 
-    logger.info('Fetched tweets from home timeline', {
-      count: tweets.length,
-    });
+    const totalDropped = stats.raw - stats.parsed;
+    const dropRate = stats.raw > 0 ? Math.round((totalDropped / stats.raw) * 100) : 0;
+
+    if (dropRate > 80 && stats.raw > 5) {
+      logger.warn('High drop rate in message parsing — possible API structure change', {
+        count: tweets.length,
+        stats,
+        dropRate: `${dropRate}%`,
+      });
+    } else {
+      logger.info('Fetched messages from home timeline', {
+        count: tweets.length,
+        stats,
+      });
+    }
+
     return tweets;
   }
 
@@ -296,6 +321,17 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
 
           if (content.entryType === 'TimelineTimelineItem') {
             entries.push(entry);
+          } else if (content.entryType === 'TimelineTimelineModule') {
+            // Unwrap conversation threads / grouped tweets
+            const items = content.items as Array<Record<string, unknown>> | undefined;
+            if (items) {
+              for (const item of items) {
+                const itemContent = item.item as Record<string, unknown> | undefined;
+                if (itemContent) {
+                  entries.push({ content: itemContent });
+                }
+              }
+            }
           } else if (
             content.entryType === 'TimelineTimelineCursor' &&
             content.cursorType === 'Bottom'
@@ -309,7 +345,10 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
     return { entries, nextCursor };
   }
 
-  function parseTweetEntry(entry: unknown): Tweet | null {
+  function parseTweetEntry(
+    entry: unknown,
+    stats: Record<string, number>,
+  ): Tweet | null {
     try {
       const tweetResult = getNestedValue(entry as Record<string, unknown>, [
         'content',
@@ -318,16 +357,31 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
         'result',
       ]) as Record<string, unknown> | undefined;
 
-      if (!tweetResult) return null;
+      if (!tweetResult) {
+        stats.droppedNoResult++;
+        return null;
+      }
+
+      // Skip tombstones and unavailable tweets intentionally
+      const typename = tweetResult.__typename as string | undefined;
+      if (typename === 'TweetTombstone' || typename === 'TweetUnavailable') {
+        stats.droppedTombstone++;
+        return null;
+      }
 
       // Handle tweet types: regular tweet or tweet-with-visibility-results
       const legacy = tweetResult.legacy ?? getNestedValue(tweetResult, ['tweet', 'legacy']);
-      if (!legacy) return null;
+      if (!legacy) {
+        stats.droppedNoLegacy++;
+        return null;
+      }
 
       const parsed = tweetLegacySchema.safeParse(legacy);
       if (!parsed.success) {
-        logger.debug('Scraper: failed to parse tweet', {
+        stats.droppedSchemaFail++;
+        logger.debug('Scraper: failed to parse message', {
           errors: parsed.error.issues.map((i) => i.message),
+          typename,
         });
         return null;
       }
@@ -335,7 +389,9 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
       // For retweets, use the original tweet text
       if (parsed.data.retweeted_status_result) {
         const rtResult = parsed.data.retweeted_status_result as Record<string, unknown>;
-        const rtLegacy = getNestedValue(rtResult, ['result', 'legacy']) as
+        // Try both direct and visibility-wrapped paths
+        const rtLegacy = (getNestedValue(rtResult, ['result', 'legacy']) ??
+          getNestedValue(rtResult, ['result', 'tweet', 'legacy'])) as
           | Record<string, unknown>
           | undefined;
         if (rtLegacy) {
@@ -352,6 +408,7 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
             };
           }
         }
+        stats.droppedRtUnparseable++;
         return null;
       }
 
@@ -365,7 +422,11 @@ export function createScraperReader(config: Config, persister?: GqlIdPersister):
         createdAt: new Date(parsed.data.created_at).toISOString(),
         urls,
       };
-    } catch {
+    } catch (err) {
+      stats.droppedException++;
+      logger.warn('Scraper: unexpected error parsing entry', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     }
   }
