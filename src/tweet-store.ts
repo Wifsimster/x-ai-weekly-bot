@@ -107,6 +107,44 @@ export function countUnpublishedTweets(collectionDate: string): number {
 }
 
 /**
+ * Returns tweets used in a specific publish run.
+ */
+export function getTweetsByRunId(
+  runId: number,
+  limit = 50,
+  offset = 0,
+): { tweets: Tweet[]; total: number } {
+  const db = getDb();
+  const countRow = db
+    .prepare(`SELECT COUNT(*) as count FROM tweets WHERE used_in_run_id = ?`)
+    .get(runId) as { count: number };
+
+  const rows = db
+    .prepare(
+      `SELECT id, text, created_at, urls FROM tweets
+       WHERE used_in_run_id = ?
+       ORDER BY created_at ASC
+       LIMIT ? OFFSET ?`,
+    )
+    .all(runId, limit, offset) as {
+    id: string;
+    text: string;
+    created_at: string;
+    urls: string;
+  }[];
+
+  return {
+    tweets: rows.map((row) => ({
+      id: row.id,
+      text: row.text,
+      createdAt: row.created_at,
+      urls: JSON.parse(row.urls) as string[],
+    })),
+    total: countRow.count,
+  };
+}
+
+/**
  * Returns the total count of tweets collected for a given date.
  */
 export function countTweetsForDate(collectionDate: string): number {
