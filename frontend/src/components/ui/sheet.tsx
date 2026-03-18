@@ -12,6 +12,7 @@ export function SheetOverlay({
 }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay
+      data-slot="sheet-overlay"
       className={cn(
         "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
@@ -30,6 +31,7 @@ export function SheetContent({
     <DialogPrimitive.Portal>
       <SheetOverlay />
       <DialogPrimitive.Content
+        data-slot="sheet-content"
         className={cn(
           "fixed inset-y-0 right-0 z-50 h-full w-full border-l bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=closed]:duration-300 data-[state=open]:duration-500 sm:max-w-md md:max-w-lg",
           className,
@@ -47,7 +49,7 @@ export function SheetContent({
 }
 
 export function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col space-y-2 mb-4", className)} {...props} />;
+  return <div data-slot="sheet-header" className={cn("flex flex-col space-y-2 mb-4", className)} {...props} />;
 }
 
 export function SheetTitle({
@@ -56,6 +58,7 @@ export function SheetTitle({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
+      data-slot="sheet-title"
       className={cn("text-lg font-semibold leading-none tracking-tight", className)}
       {...props}
     />
@@ -68,6 +71,7 @@ export function SheetDescription({
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
+      data-slot="sheet-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />

@@ -277,12 +277,12 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
             {run.tweets_fetched > 0 ? (
               <Sheet>
                 <SheetTrigger asChild>
-                  <button className="cursor-pointer" aria-label="Voir les tweets">
+                  <Button variant="ghost" size="sm" className="h-auto p-0" aria-label="Voir les tweets">
                     <Badge variant="secondary" className="hover:bg-secondary/80 transition-colors">
                       <MessageSquare className="h-3 w-3 mr-1" />
                       {run.tweets_fetched} tweets
                     </Badge>
-                  </button>
+                  </Button>
                 </SheetTrigger>
                 <SheetContent>
                   <SheetHeader>

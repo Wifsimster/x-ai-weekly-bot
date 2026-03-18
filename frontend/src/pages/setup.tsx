@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useApi } from "@/hooks/use-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
@@ -36,7 +37,7 @@ export function SetupPage() {
         </p>
       </div>
 
-      <div className="flex gap-1" role="progressbar" aria-valuenow={configuredCount} aria-valuemax={totalCount} aria-label="Progression de la configuration">
+      <div className="flex gap-1" role="progressbar" aria-valuemin={0} aria-valuenow={configuredCount} aria-valuemax={totalCount} aria-label="Progression de la configuration">
         {credentials.map((cred) => (
           <div
             key={cred.key}
@@ -77,10 +78,10 @@ export function SetupPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-3">
-              Ajoutez les variables manquantes dans votre fichier <code className="font-mono text-xs">.env</code> ou dans votre{" "}
-              <code className="font-mono text-xs">compose.yml</code> :
+              Ajoutez les variables manquantes dans votre fichier <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">.env</code> ou dans votre{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">compose.yml</code> :
             </p>
-            <pre className="rounded-lg bg-muted p-4 text-xs overflow-x-auto">
+            <pre className="rounded-lg border bg-muted p-4 font-mono text-xs overflow-x-auto">
               {credentials
                 .filter((c) => !c.configured)
                 .map((c) => `${c.key}=your-${c.key.toLowerCase().replace(/_/g, "-")}-here`)
@@ -97,15 +98,15 @@ export function SetupPage() {
         <CardContent>
           <ol className="list-decimal list-inside space-y-2 text-sm">
             <li>
-              Copiez le fichier <code className="font-mono text-xs">.env.example</code> en{" "}
-              <code className="font-mono text-xs">.env</code> et remplissez les valeurs manquantes
+              Copiez le fichier <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">.env.example</code> en{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">.env</code> et remplissez les valeurs manquantes
             </li>
             <li>
-              Ou ajoutez les variables dans la section <code className="font-mono text-xs">environment:</code> de votre{" "}
-              <code className="font-mono text-xs">compose.yml</code>
+              Ou ajoutez les variables dans la section <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">environment:</code> de votre{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">compose.yml</code>
             </li>
             <li>
-              Redémarrez le conteneur : <code className="font-mono text-xs">docker compose down && docker compose up -d</code>
+              Redémarrez le conteneur : <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">docker compose down && docker compose up -d</code>
             </li>
           </ol>
           <p className="text-xs text-muted-foreground mt-3">
@@ -115,9 +116,9 @@ export function SetupPage() {
       </Card>
 
       {configured ? (
-        <a href="/" className="block">
-          <Button className="w-full">Accéder au dashboard</Button>
-        </a>
+        <Button asChild className="w-full">
+          <Link to="/">Accéder au dashboard</Link>
+        </Button>
       ) : (
         <Button disabled className="w-full">
           En attente de configuration...

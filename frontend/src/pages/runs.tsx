@@ -1,13 +1,32 @@
+import { useState } from "react";
 import { useApi } from "@/hooks/use-api";
 import { StatusBadge } from "@/components/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownContent } from "@/components/markdown-content";
 import type { RunRecord } from "@/types";
 
+function SummaryToggle({ summary }: { summary: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <Button variant="ghost" size="sm" className="px-0 text-sm text-primary hover:underline" onClick={() => setOpen(!open)}>
+        {open ? "Masquer" : "Voir le résumé"}
+      </Button>
+      {open && (
+        <div className="mt-2 max-w-md p-2 rounded bg-muted">
+          <MarkdownContent content={summary} className="text-xs" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RunCard({ run }: { run: RunRecord }) {
+  const [open, setOpen] = useState(false);
   return (
     <Card>
       <CardContent className="py-4 space-y-2">
@@ -29,12 +48,16 @@ function RunCard({ run }: { run: RunRecord }) {
           </div>
         )}
         {run.summary && (
-          <details>
-            <summary className="cursor-pointer text-sm text-primary hover:underline">Voir le résumé</summary>
-            <div className="mt-2 p-2 rounded bg-muted">
-              <MarkdownContent content={run.summary} className="text-xs" />
-            </div>
-          </details>
+          <div>
+            <Button variant="ghost" size="sm" className="px-0 text-sm text-primary hover:underline" onClick={() => setOpen(!open)}>
+              {open ? "Masquer le résumé" : "Voir le résumé"}
+            </Button>
+            {open && (
+              <div className="mt-2 p-2 rounded bg-muted">
+                <MarkdownContent content={run.summary} className="text-xs" />
+              </div>
+            )}
+          </div>
         )}
         {run.error_message && (
           <p className="text-xs text-destructive truncate">{run.error_message.slice(0, 120)}</p>
@@ -119,12 +142,7 @@ export function RunsPage() {
                 <TableCell>{run.tweets_fetched}</TableCell>
                 <TableCell>
                   {run.summary ? (
-                    <details>
-                      <summary className="cursor-pointer text-sm text-primary hover:underline">Voir le résumé</summary>
-                      <div className="mt-2 max-w-md p-2 rounded bg-muted">
-                        <MarkdownContent content={run.summary} className="text-xs" />
-                      </div>
-                    </details>
+                    <SummaryToggle summary={run.summary} />
                   ) : (
                     "\u2014"
                   )}

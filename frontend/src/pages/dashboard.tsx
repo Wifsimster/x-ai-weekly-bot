@@ -6,6 +6,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Link } from 'react-router-dom';
 import { Activity, Clock, Zap } from 'lucide-react';
 import { humanizeCron } from '@/lib/utils';
 import {
@@ -117,9 +118,9 @@ export function DashboardPage() {
           <AlertTitle>Session cookies expirés</AlertTitle>
           <AlertDescription>
             Vos cookies de session X semblent avoir expiré.{' '}
-            <a href="/settings" className="underline font-medium">
+            <Link to="/settings" className="underline font-medium">
               Mettez-les à jour dans Paramètres
-            </a>
+            </Link>
             .
           </AlertDescription>
         </Alert>
