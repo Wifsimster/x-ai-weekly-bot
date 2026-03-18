@@ -45,6 +45,12 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md"
+      >
+        Aller au contenu principal
+      </a>
       <nav className="border-b border-primary/15 bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto flex items-center justify-between px-4 h-14">
           <Link
@@ -127,7 +133,7 @@ export function Layout() {
           </Sheet>
         </div>
       </nav>
-      <main className="container mx-auto flex-1 px-3 py-4 sm:px-4 sm:py-6">
+      <main id="main-content" className="container mx-auto flex-1 px-3 py-4 sm:px-4 sm:py-6">
         <Outlet />
       </main>
       <footer className="border-t py-4">

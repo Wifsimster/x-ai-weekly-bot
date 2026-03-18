@@ -222,12 +222,15 @@ export function startServer(
 
     app.get('/api/runs', (c) => {
       const limit = Number(c.req.query('limit') || '20');
+      const offset = Number(c.req.query('offset') || '0');
       const type = c.req.query('type'); // optional: 'collect', 'cron', 'manual'
-      const runs = getRunHistory(limit);
+      const runs = getRunHistory(limit, offset);
+      const total = countRuns();
       if (type) {
-        return c.json(runs.filter((r) => r.trigger_type === type));
+        const filtered = runs.filter((r) => r.trigger_type === type);
+        return c.json({ runs: filtered, total });
       }
-      return c.json(runs);
+      return c.json({ runs, total });
     });
 
     app.get('/api/collect-status', (c) => {

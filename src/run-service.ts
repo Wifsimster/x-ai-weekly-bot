@@ -142,9 +142,9 @@ export function updateNotificationStatus(runId: number, status: string): void {
   db.prepare('UPDATE runs SET notification_status = ? WHERE id = ?').run(status, runId);
 }
 
-export function getRunHistory(limit = 20): RunRecord[] {
+export function getRunHistory(limit = 20, offset = 0): RunRecord[] {
   const db = getDb();
-  return db.prepare('SELECT * FROM runs ORDER BY id DESC LIMIT ?').all(limit) as RunRecord[];
+  return db.prepare('SELECT * FROM runs ORDER BY id DESC LIMIT ? OFFSET ?').all(limit, offset) as RunRecord[];
 }
 
 export function countRuns(): number {
