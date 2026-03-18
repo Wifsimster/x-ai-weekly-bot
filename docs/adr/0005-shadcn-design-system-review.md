@@ -30,29 +30,34 @@ A comprehensive audit of the shadcn/UI design system implementation in the front
 
 ---
 
-### 2. No `forwardRef` on HTML Wrapper Components
+### 2. React 19 Ref Pattern Not Adopted
 
 **Severity:** Medium
-**Best Practice:** shadcn/UI components wrapping native HTML elements (Input, Label, Card, Table elements) should use `React.forwardRef` to allow parent components to attach refs.
+**Best Practice:** The project uses React 19, where `forwardRef` is deprecated. In the modern shadcn/UI pattern for React 19:
+- Refs are passed as regular props (no `forwardRef` wrapper needed)
+- Components use `React.ComponentProps<"element">` for typing
+- Every primitive gets a `data-slot="component-name"` attribute for CSS targeting
+
+**Current State:** Components use neither the old `forwardRef` pattern nor the new React 19 `ref`-as-prop + `data-slot` pattern. Refs cannot be attached to these components at all.
 
 **Affected Files:**
-- `frontend/src/components/ui/input.tsx` — no ref forwarding
-- `frontend/src/components/ui/label.tsx` — no ref forwarding
-- `frontend/src/components/ui/card.tsx` — 5 sub-components without ref forwarding
-- `frontend/src/components/ui/table.tsx` — 6 sub-components without ref forwarding
-- `frontend/src/components/ui/separator.tsx` — no ref forwarding
-- `frontend/src/components/ui/skeleton.tsx` — no ref forwarding
+- `frontend/src/components/ui/input.tsx` — no ref support, no `data-slot`
+- `frontend/src/components/ui/label.tsx` — no ref support, no `data-slot`
+- `frontend/src/components/ui/card.tsx` — 5 sub-components, no ref support, no `data-slot`
+- `frontend/src/components/ui/table.tsx` — 6 sub-components, no ref support, no `data-slot`
+- `frontend/src/components/ui/separator.tsx` — no ref support, no `data-slot`
+- `frontend/src/components/ui/skeleton.tsx` — no ref support, no `data-slot`
 
-**Note:** Button correctly uses `Slot` for `asChild`, and Radix wrappers handle refs internally. The issue is only with direct HTML element wrappers.
+**Note:** Button correctly uses `Slot` for `asChild`, and Radix wrappers handle refs internally.
 
 ---
 
 ### 3. Missing `displayName` on All Components
 
 **Severity:** Low
-**Best Practice:** Components should set `Component.displayName = "Component"` for React DevTools debugging.
+**Best Practice:** With React 19 + named function exports, `displayName` is less critical (React DevTools infers names from named exports). However, components that are assigned to variables or wrapped should still set it.
 
-**Affected:** All 14 UI component files (30+ exported functions total).
+**Affected:** All 14 UI component files (30+ exported functions total). Most use named function exports which partially mitigates this.
 
 ---
 
@@ -155,12 +160,69 @@ Components that would improve consistency but are not installed:
 | Styling consistency | A- | Consistent tokens, minor template string issues |
 | Type safety | B+ | Good but inconsistent type exports |
 
+### 9. Individual Radix Packages Instead of Unified `radix-ui`
+
+**Severity:** Low
+**Best Practice:** As of June 2025, shadcn/UI migrated to a unified `radix-ui` package, replacing all individual `@radix-ui/react-*` imports with named imports from `radix-ui`.
+
+**Current State:** The project uses 6 individual packages:
+- `@radix-ui/react-alert-dialog`
+- `@radix-ui/react-dialog`
+- `@radix-ui/react-select`
+- `@radix-ui/react-slot`
+- `@radix-ui/react-tabs`
+- `@radix-ui/react-tooltip`
+
+**Impact:** More dependencies to manage. Migration is straightforward but low priority.
+
+---
+
+### 10. No `tailwindcss-animate` / `tw-animate-css` Package
+
+**Severity:** Low
+**Best Practice:** shadcn/UI components use animation utilities (animate-in, fade-in, slide-in, etc.) provided by `tailwindcss-animate` (v3) or `tw-animate-css` (v4).
+
+**Current State:** Animation classes are used in components (AlertDialog, Sheet, Select, Tooltip) but no animation package is in `package.json`. This may work if Tailwind v4 includes these natively or if they're defined in `globals.css` — needs verification.
+
+---
+
+## What's Done Well
+
+### Excellent Patterns
+1. **`cn()` utility** — Standard `clsx` + `twMerge` pattern, used consistently everywhere
+2. **CVA variant system** — Button, Badge, Alert all use class-variance-authority correctly
+3. **Radix UI composition** — Portal + Overlay + Content pattern applied correctly in AlertDialog, Sheet, Select, Tooltip
+4. **Dark mode** — Full `.dark` class-based theming with proper OKLCH variable overrides; no manual `dark:` overrides — fully token-driven
+5. **Design token usage** — Consistent use of `bg-card`, `text-muted-foreground`, `border-input` etc. across all pages; no raw Tailwind colors (`bg-blue-500`)
+6. **Responsive design** — Excellent mobile-first approach (Card view on mobile, Table on desktop in Runs page; Sheet drawer for mobile nav)
+7. **Loading states** — Proper Skeleton usage across all pages
+8. **Accessibility fundamentals** — `aria-label` on buttons, `aria-live="polite"` on flash messages, `role="alert"` on alerts, proper `htmlFor`/`id` associations
+9. **Theme provider** — Clean React Context implementation with system preference detection and localStorage persistence
+10. **Security** — Password inputs, autocomplete="off" on sensitive fields, no rehype-raw in markdown
+11. **Three-tier component organization** — `ui/` primitives, custom composites (`stat-card`, `status-badge`), and page-level usage — matches recommended architecture
+12. **OKLCH color system** — Already using the modern color space that shadcn migrated to in Tailwind v4
+
+### Rating Summary
+
+| Aspect | Grade | Notes |
+|--------|-------|-------|
+| Component correctness | A | ~95% correct usage |
+| Dark mode | A+ | Fully consistent, token-driven |
+| Accessibility | B+ | Good foundation, minor gaps |
+| Design system adherence | B | Some raw HTML bypasses components |
+| Responsive design | A | Excellent mobile-first approach |
+| Code organization | A | Clean three-tier separation |
+| Styling consistency | A- | Consistent tokens, minor template string issues |
+| Type safety | B+ | Good but inconsistent type exports |
+| React 19 modernization | C+ | Not using new ref/data-slot patterns |
+
 ## Recommended Actions (Priority Order)
 
-1. **Add `components.json`** for shadcn CLI support
-2. **Replace raw HTML with design system components** (the 7 instances listed above)
-3. **Add `forwardRef`** to HTML wrapper components (Input, Label, Card, Table, etc.)
+1. **Replace raw HTML with design system components** (the 7 instances in item #4)
+2. **Adopt React 19 component pattern** — replace missing ref support with `ref`-as-prop + `data-slot` attributes
+3. **Add `components.json`** for shadcn CLI support
 4. **Install missing components**: Accordion, Progress from shadcn
-5. **Standardize type exports** across all CVA components
-6. **Add `displayName`** to all components (optional but helpful)
-7. **Fix accessibility gaps** (aria-valuemin, focus-visible on raw buttons)
+5. **Migrate to unified `radix-ui` package** (when convenient)
+6. **Standardize type exports** across all CVA components
+7. **Verify animation utilities** — ensure `tw-animate-css` or equivalent is installed
+8. **Fix accessibility gaps** (aria-valuemin, focus-visible on raw buttons)
