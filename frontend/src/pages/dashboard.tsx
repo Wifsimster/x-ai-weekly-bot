@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
-import { Activity, Clock, Zap } from 'lucide-react';
-import { humanizeCron } from '@/lib/utils';
+import { Activity, Clock, Zap, AlertCircle, Timer } from 'lucide-react';
+import { humanizeCron, nextCronDate, formatTimeUntil } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -27,7 +27,7 @@ import type { StatusResponse } from '@/types';
 const POLL_INTERVAL_MS = 4_000;
 
 export function DashboardPage() {
-  const { data: status, loading, refetch } = useApi<StatusResponse>('/api/status');
+  const { data: status, loading, error, refetch } = useApi<StatusResponse>('/api/status');
   const [triggering, setTriggering] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wasRunning = useRef(false);
@@ -96,9 +96,28 @@ export function DashboardPage() {
       </div>
     );
   }
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Supervision du bot X AI Weekly</p>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Impossible de charger le statut : {error}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   if (!status) return null;
 
   const { lastRun, cronSchedule, running, totalRuns } = status;
+  const nextRun = nextCronDate(cronSchedule);
+  const nextRunLabel = nextRun ? formatTimeUntil(nextRun) : null;
   const cookiesExpired =
     lastRun?.error_message?.includes('401') ||
     lastRun?.error_message?.includes('403') ||
@@ -126,12 +145,21 @@ export function DashboardPage() {
         </Alert>
       )}
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
         <StatCard title="Total runs" icon={Activity}>
           {totalRuns}
         </StatCard>
         <StatCard title="Planification" icon={Clock}>
           <span className="text-base">{humanizeCron(cronSchedule)}</span>
+        </StatCard>
+        <StatCard title="Prochain run" icon={Timer}>
+          {running ? (
+            <StatusBadge status="running" />
+          ) : nextRunLabel ? (
+            <span className="text-base">dans {nextRunLabel}</span>
+          ) : (
+            <span className="text-muted-foreground text-base">—</span>
+          )}
         </StatCard>
         <StatCard title="Statut actuel" icon={Zap}>
           {running ? (

@@ -127,6 +127,8 @@ function DailyView() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="pl-9"
+            aria-label="Rechercher dans le contenu des résumés"
+            title="Recherche dans le texte des résumés IA"
           />
         </div>
         <Select value={filterMonth} onValueChange={(v) => { setFilterMonth(v); setPage(0); }}>
@@ -233,10 +235,13 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
       const res = await fetch(`/api/summaries/${run.id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
+        toast.success("Résumé supprimé");
         onMutate();
+      } else {
+        toast.error(data.message || "Échec de la suppression");
       }
     } catch {
-      // silently fail — card stays visible
+      toast.error("Erreur réseau lors de la suppression");
     } finally {
       setDeleting(false);
     }
@@ -250,12 +255,15 @@ function SummaryCard({ run, discordConfigured, onMutate }: { run: RunRecord; dis
       const data = await res.json();
       if (data.success) {
         setRerunResult("success");
+        toast.success("Résumé régénéré avec succès");
         onMutate();
       } else {
         setRerunResult("error");
+        toast.error(data.message || "Échec de la régénération");
       }
     } catch {
       setRerunResult("error");
+      toast.error("Erreur réseau lors de la régénération");
     } finally {
       setRerunning(false);
       setTimeout(() => setRerunResult(null), 3000);

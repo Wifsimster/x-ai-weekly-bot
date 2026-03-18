@@ -6,8 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MarkdownContent } from "@/components/markdown-content";
+import { AlertCircle } from "lucide-react";
 import type { RunRecord } from "@/types";
+
+const PAGE_SIZE = 20;
 
 function SummaryToggle({ summary }: { summary: string }) {
   const [open, setOpen] = useState(false);
@@ -68,9 +72,12 @@ function RunCard({ run }: { run: RunRecord }) {
 }
 
 export function RunsPage() {
-  const { data: runs, loading } = useApi<RunRecord[]>("/api/runs?limit=50");
+  const [page, setPage] = useState(0);
+  const { data, loading, error } = useApi<{ runs: RunRecord[]; total: number }>(
+    `/api/runs?limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`
+  );
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="space-y-6">
         <div>
@@ -87,16 +94,39 @@ export function RunsPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Historique des runs</h1>
+          <p className="text-muted-foreground">Historique complet des exécutions du bot</p>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Impossible de charger l'historique des runs : {error}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const runs = data?.runs ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Historique des runs</h1>
-        <p className="text-muted-foreground">Les 50 derniers runs du bot</p>
+        <p className="text-muted-foreground">
+          {total} run{total !== 1 ? "s" : ""} au total
+        </p>
       </div>
 
       {/* Mobile card view */}
       <div className="md:hidden space-y-3">
-        {(!runs || runs.length === 0) ? (
+        {runs.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
               Aucun run enregistré.
@@ -123,14 +153,14 @@ export function RunsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(!runs || runs.length === 0) && (
+            {runs.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   Aucun run enregistré.
                 </TableCell>
               </TableRow>
             )}
-            {runs?.map((run) => (
+            {runs.map((run) => (
               <TableRow key={run.id}>
                 <TableCell className="font-medium">{run.id}</TableCell>
                 <TableCell className="text-sm">{run.started_at}</TableCell>
@@ -159,6 +189,31 @@ export function RunsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            Précédent
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {page + 1} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Suivant
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
