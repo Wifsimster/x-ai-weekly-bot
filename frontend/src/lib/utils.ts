@@ -107,6 +107,24 @@ export function nextCronDate(cron: string): Date | null {
 }
 
 /**
+ * Format a date string (ISO or any parseable format) as a French localized string.
+ * Example: "18 mars 2026 à 14h30"
+ */
+export function formatDateFr(dateStr: string | null | undefined): string {
+  if (!dateStr) return '\u2014';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+  });
+}
+
+/**
  * Format a duration between now and a future date as a French relative string.
  */
 export function formatTimeUntil(target: Date): string {

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MarkdownContent } from "@/components/markdown-content";
 import { AlertCircle } from "lucide-react";
+import { formatDateFr } from "@/lib/utils";
 import type { RunRecord } from "@/types";
 
 const PAGE_SIZE = 20;
@@ -26,7 +27,7 @@ function RunCard({ run }: { run: RunRecord }) {
         </div>
         <div className="text-sm">
           <span className="text-muted-foreground">Début : </span>
-          <span>{run.started_at}</span>
+          <span>{formatDateFr(run.started_at)}</span>
         </div>
         {run.trigger_type && (
           <div className="text-sm">
@@ -142,8 +143,8 @@ export function RunsPage() {
             {runs.map((run) => (
               <TableRow key={run.id}>
                 <TableCell className="font-medium">{run.id}</TableCell>
-                <TableCell className="text-sm">{run.started_at}</TableCell>
-                <TableCell className="text-sm">{run.finished_at || "\u2014"}</TableCell>
+                <TableCell className="text-sm">{formatDateFr(run.started_at)}</TableCell>
+                <TableCell className="text-sm">{formatDateFr(run.finished_at)}</TableCell>
                 <TableCell>
                   <StatusBadge status={run.status} />
                 </TableCell>
