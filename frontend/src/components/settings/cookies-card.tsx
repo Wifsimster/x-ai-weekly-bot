@@ -74,7 +74,7 @@ export function CookiesCard({ credentialInfo, onSaved }: CookiesCardProps) {
               {credentialInfo.authTokenMasked ? (
                 <>
                   Valeur actuelle :{' '}
-                  <code className="font-mono">{credentialInfo.authTokenMasked}</code>
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{credentialInfo.authTokenMasked}</code>
                 </>
               ) : (
                 'Non configuré'
@@ -94,7 +94,7 @@ export function CookiesCard({ credentialInfo, onSaved }: CookiesCardProps) {
               {credentialInfo.csrfTokenMasked ? (
                 <>
                   Valeur actuelle :{' '}
-                  <code className="font-mono">{credentialInfo.csrfTokenMasked}</code>
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{credentialInfo.csrfTokenMasked}</code>
                 </>
               ) : (
                 'Non configuré'

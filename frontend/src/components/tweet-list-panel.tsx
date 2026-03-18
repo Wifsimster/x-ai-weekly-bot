@@ -3,6 +3,7 @@ import { useApi } from "@/hooks/use-api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, MessageSquare } from "lucide-react";
 import type { TweetRecord } from "@/types";
 
@@ -54,10 +55,10 @@ export function TweetListPanel({ runId, tweetCount }: { runId: number; tweetCoun
 
       <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-12rem)] pr-1">
         {data.tweets.map((tweet) => (
-          <div
+          <Card
             key={tweet.id}
-            className="rounded-md border p-3 text-sm space-y-1.5 hover:bg-muted/50 transition-colors"
-          >
+            className="p-3 text-sm space-y-1.5 hover:bg-muted/50 shadow-none"
+          ><CardContent className="p-0 space-y-1.5">
             <div className="flex items-start justify-between gap-2">
               <p className="leading-relaxed whitespace-pre-wrap break-words flex-1">
                 {tweet.text}
@@ -82,7 +83,7 @@ export function TweetListPanel({ runId, tweetCount }: { runId: number; tweetCoun
                 </Badge>
               )}
             </div>
-          </div>
+          </CardContent></Card>
         ))}
       </div>
 
